@@ -1,10 +1,13 @@
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
+import { api, initializeApp } from '@/lib/api';
 
 interface User {
-  id: string;
+  _id: string;
   username: string;
   name: string;
-  role: 'admin' | 'staff';
+  email: string;
+  role: 'admin' | 'superadmin' | 'staff';
+  token?: string;
 }
 
 interface AuthContextType {
@@ -16,43 +19,49 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Demo credentials - in production, this would be validated against a backend
-const DEMO_USERS = [
-  { id: '1', username: 'admin', password: 'admin123', name: 'Parameshwari Admin', role: 'admin' as const },
-  { id: '2', username: 'staff', password: 'staff123', name: 'Staff User', role: 'staff' as const },
-];
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    // Check for existing session
-    const savedUser = localStorage.getItem('pg_admin_user');
-    if (savedUser) {
-      setUser(JSON.parse(savedUser));
-    }
-    setIsLoading(false);
+    const checkAuth = async () => {
+      try {
+        await initializeApp();
+        
+        const savedUser = localStorage.getItem('pg_admin_user');
+        if (savedUser) {
+          const parsedUser = JSON.parse(savedUser);
+          const me = await api.get<User>('/auth/me');
+          setUser({ ...me, token: parsedUser.token });
+        }
+      } catch (error) {
+        localStorage.removeItem('pg_admin_user');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    checkAuth();
   }, []);
 
   const login = async (username: string, password: string): Promise<boolean> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 500));
-    
-    const foundUser = DEMO_USERS.find(
-      u => u.username === username && u.password === password
-    );
-
-    if (foundUser) {
-      const { password: _, ...userWithoutPassword } = foundUser;
-      setUser(userWithoutPassword);
-      localStorage.setItem('pg_admin_user', JSON.stringify(userWithoutPassword));
+    try {
+      const response = await api.post<User>('/auth/login', { username, password });
+      setUser(response);
+      localStorage.setItem('pg_admin_user', JSON.stringify(response));
       return true;
+    } catch (error) {
+      console.error('Login failed:', error);
+      return false;
     }
-    return false;
   };
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await api.post('/auth/logout', {});
+    } catch (error) {
+      console.error('Logout error:', error);
+    }
     setUser(null);
     localStorage.removeItem('pg_admin_user');
   };

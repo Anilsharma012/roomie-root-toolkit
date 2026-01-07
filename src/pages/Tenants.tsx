@@ -1,8 +1,8 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Plus, 
-  Filter, 
   MoreVertical, 
   Phone, 
   Mail,
@@ -11,9 +11,10 @@ import {
   Eye,
   Edit,
   Trash2,
-  Download
+  Download,
+  Loader2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,202 +31,267 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
-const tenants = [
-  {
-    id: 1,
-    name: 'Priya Sharma',
-    room: '201',
-    bed: 'A',
-    phone: '+91 98765 43210',
-    email: 'priya.sharma@email.com',
-    joinDate: '2024-01-15',
-    rent: 8500,
-    status: 'active',
-    photo: null,
-    city: 'Jaipur',
-    kycStatus: 'verified',
-  },
-  {
-    id: 2,
-    name: 'Anita Verma',
-    room: '105',
-    bed: 'B',
-    phone: '+91 87654 32109',
-    email: 'anita.v@email.com',
-    joinDate: '2024-02-01',
-    rent: 7500,
-    status: 'active',
-    photo: null,
-    city: 'Delhi',
-    kycStatus: 'verified',
-  },
-  {
-    id: 3,
-    name: 'Meera Singh',
-    room: '203',
-    bed: 'A',
-    phone: '+91 76543 21098',
-    email: 'meera.s@email.com',
-    joinDate: '2023-11-20',
-    rent: 8500,
-    status: 'due',
-    photo: null,
-    city: 'Mumbai',
-    kycStatus: 'pending',
-  },
-  {
-    id: 4,
-    name: 'Ritu Gupta',
-    room: '305',
-    bed: 'C',
-    phone: '+91 65432 10987',
-    email: 'ritu.g@email.com',
-    joinDate: '2024-01-01',
-    rent: 9000,
-    status: 'active',
-    photo: null,
-    city: 'Lucknow',
-    kycStatus: 'verified',
-  },
-  {
-    id: 5,
-    name: 'Shalini Das',
-    room: '108',
-    bed: 'A',
-    phone: '+91 54321 09876',
-    email: 'shalini.d@email.com',
-    joinDate: '2023-12-10',
-    rent: 7500,
-    status: 'notice',
-    photo: null,
-    city: 'Kolkata',
-    kycStatus: 'verified',
-  },
-  {
-    id: 6,
-    name: 'Pooja Reddy',
-    room: '402',
-    bed: 'B',
-    phone: '+91 43210 98765',
-    email: 'pooja.r@email.com',
-    joinDate: '2024-02-15',
-    rent: 10000,
-    status: 'active',
-    photo: null,
-    city: 'Hyderabad',
-    kycStatus: 'verified',
-  },
-];
+interface Tenant {
+  _id: string;
+  name: string;
+  phone: string;
+  email: string;
+  address: string;
+  aadharNumber: string;
+  roomId?: {
+    _id: string;
+    roomNumber: string;
+  };
+  bedId?: {
+    _id: string;
+    bedNumber: string;
+  };
+  rentAmount: number;
+  depositAmount: number;
+  joinDate: string;
+  status: 'active' | 'inactive' | 'left';
+  isActive: boolean;
+  createdAt: string;
+}
 
 const Tenants = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [statusFilter, setStatusFilter] = useState('all');
-  const [floorFilter, setFloorFilter] = useState('all');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newTenant, setNewTenant] = useState({
+    name: '',
+    phone: '',
+    email: '',
+    address: '',
+    aadharNumber: '',
+    rentAmount: 0,
+    depositAmount: 0
+  });
 
-  const filteredTenants = tenants.filter((tenant) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: tenants, isLoading } = useQuery<Tenant[]>({
+    queryKey: ['/api/tenants'],
+  });
+
+  const addTenantMutation = useMutation({
+    mutationFn: (data: typeof newTenant) => api.post('/tenants', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tenants'] });
+      setIsAddDialogOpen(false);
+      setNewTenant({ name: '', phone: '', email: '', address: '', aadharNumber: '', rentAmount: 0, depositAmount: 0 });
+      toast({ title: 'Tenant added successfully!' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error adding tenant', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteTenantMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/tenants/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/tenants'] });
+      toast({ title: 'Tenant removed successfully!' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error removing tenant', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const filteredTenants = (tenants || []).filter((tenant) => {
     const matchesSearch = 
       tenant.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tenant.room.includes(searchQuery) ||
       tenant.phone.includes(searchQuery);
     const matchesStatus = statusFilter === 'all' || tenant.status === statusFilter;
-    const matchesFloor = floorFilter === 'all' || tenant.room.charAt(0) === floorFilter;
-    return matchesSearch && matchesStatus && matchesFloor;
+    return matchesSearch && matchesStatus;
   });
 
   const getStatusBadge = (status: string) => {
     switch (status) {
       case 'active':
         return <Badge className="bg-success/10 text-success border-success/20">Active</Badge>;
-      case 'due':
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Due</Badge>;
-      case 'notice':
-        return <Badge className="bg-warning/10 text-warning border-warning/20">Notice Period</Badge>;
+      case 'inactive':
+        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Inactive</Badge>;
+      case 'left':
+        return <Badge className="bg-muted text-muted-foreground">Left</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
+  const handleAddTenant = (e: React.FormEvent) => {
+    e.preventDefault();
+    addTenantMutation.mutate(newTenant);
+  };
+
+  const activeCount = (tenants || []).filter(t => t.status === 'active').length;
+  const inactiveCount = (tenants || []).filter(t => t.status === 'inactive').length;
+
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Tenant Management</h1>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground" data-testid="text-page-title">Tenant Management</h1>
           <p className="text-muted-foreground mt-1">Manage all your PG tenants in one place</p>
         </div>
-        <Button className="btn-gradient">
-          <Plus className="w-4 h-4 mr-2" />
-          Add New Tenant
-        </Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="btn-gradient" data-testid="button-add-tenant">
+              <Plus className="w-4 h-4 mr-2" />
+              Add New Tenant
+            </Button>
+          </DialogTrigger>
+          <DialogContent>
+            <DialogHeader>
+              <DialogTitle>Add New Tenant</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddTenant} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={newTenant.name}
+                  onChange={(e) => setNewTenant({ ...newTenant, name: e.target.value })}
+                  required
+                  data-testid="input-tenant-name"
+                />
+              </div>
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={newTenant.phone}
+                  onChange={(e) => setNewTenant({ ...newTenant, phone: e.target.value })}
+                  required
+                  data-testid="input-tenant-phone"
+                />
+              </div>
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newTenant.email}
+                  onChange={(e) => setNewTenant({ ...newTenant, email: e.target.value })}
+                  data-testid="input-tenant-email"
+                />
+              </div>
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newTenant.address}
+                  onChange={(e) => setNewTenant({ ...newTenant, address: e.target.value })}
+                  data-testid="input-tenant-address"
+                />
+              </div>
+              <div>
+                <Label htmlFor="aadhar">Aadhar Number</Label>
+                <Input
+                  id="aadhar"
+                  value={newTenant.aadharNumber}
+                  onChange={(e) => setNewTenant({ ...newTenant, aadharNumber: e.target.value })}
+                  data-testid="input-tenant-aadhar"
+                />
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label htmlFor="rent">Monthly Rent</Label>
+                  <Input
+                    id="rent"
+                    type="number"
+                    value={newTenant.rentAmount}
+                    onChange={(e) => setNewTenant({ ...newTenant, rentAmount: Number(e.target.value) })}
+                    data-testid="input-tenant-rent"
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="deposit">Deposit Amount</Label>
+                  <Input
+                    id="deposit"
+                    type="number"
+                    value={newTenant.depositAmount}
+                    onChange={(e) => setNewTenant({ ...newTenant, depositAmount: Number(e.target.value) })}
+                    data-testid="input-tenant-deposit"
+                  />
+                </div>
+              </div>
+              <Button type="submit" className="w-full" disabled={addTenantMutation.isPending} data-testid="button-submit-tenant">
+                {addTenantMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
+                Add Tenant
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
-      {/* Stats Cards */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="stat-card">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Total Tenants</p>
-            <p className="text-2xl font-bold text-foreground mt-1">102</p>
+            <p className="text-2xl font-bold text-foreground mt-1" data-testid="text-total-tenants">{tenants?.length || 0}</p>
           </CardContent>
         </Card>
         <Card className="stat-card">
           <CardContent className="p-4">
             <p className="text-sm text-muted-foreground">Active</p>
-            <p className="text-2xl font-bold text-success mt-1">85</p>
+            <p className="text-2xl font-bold text-success mt-1" data-testid="text-active-tenants">{activeCount}</p>
           </CardContent>
         </Card>
         <Card className="stat-card">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">With Dues</p>
-            <p className="text-2xl font-bold text-destructive mt-1">12</p>
+            <p className="text-sm text-muted-foreground">Inactive</p>
+            <p className="text-2xl font-bold text-destructive mt-1" data-testid="text-inactive-tenants">{inactiveCount}</p>
           </CardContent>
         </Card>
         <Card className="stat-card">
           <CardContent className="p-4">
-            <p className="text-sm text-muted-foreground">On Notice</p>
-            <p className="text-2xl font-bold text-warning mt-1">5</p>
+            <p className="text-sm text-muted-foreground">Left</p>
+            <p className="text-2xl font-bold text-warning mt-1" data-testid="text-left-tenants">
+              {(tenants || []).filter(t => t.status === 'left').length}
+            </p>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card className="stat-card">
         <CardContent className="p-4">
           <div className="flex flex-col lg:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search by name, room, or phone..."
+                placeholder="Search by name or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
+                data-testid="input-search-tenants"
               />
             </div>
             <div className="flex gap-3">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[140px]">
+                <SelectTrigger className="w-[140px]" data-testid="select-status-filter">
                   <SelectValue placeholder="Status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
                   <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="due">With Dues</SelectItem>
-                  <SelectItem value="notice">On Notice</SelectItem>
+                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="left">Left</SelectItem>
                 </SelectContent>
               </Select>
-              <Select value={floorFilter} onValueChange={setFloorFilter}>
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue placeholder="Floor" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="all">All Floors</SelectItem>
-                  <SelectItem value="1">1st Floor</SelectItem>
-                  <SelectItem value="2">2nd Floor</SelectItem>
-                  <SelectItem value="3">3rd Floor</SelectItem>
-                  <SelectItem value="4">4th Floor</SelectItem>
-                </SelectContent>
-              </Select>
-              <Button variant="outline" size="icon">
+              <Button variant="outline" size="icon" data-testid="button-download">
                 <Download className="w-4 h-4" />
               </Button>
             </div>
@@ -233,92 +299,100 @@ const Tenants = () => {
         </CardContent>
       </Card>
 
-      {/* Tenants Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredTenants.map((tenant, index) => (
-          <Card 
-            key={tenant.id} 
-            className="stat-card hover:shadow-md transition-shadow animate-slide-up"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
-                    {tenant.name.charAt(0)}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredTenants.map((tenant, index) => (
+            <Card 
+              key={tenant._id} 
+              className="stat-card animate-slide-up"
+              style={{ animationDelay: `${index * 50}ms` }}
+              data-testid={`card-tenant-${tenant._id}`}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
+                      {tenant.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">{tenant.name}</h3>
+                      <p className="text-sm text-muted-foreground">
+                        {tenant.roomId ? `Room ${tenant.roomId.roomNumber}` : 'No room assigned'}
+                        {tenant.bedId ? ` - Bed ${tenant.bedId.bedNumber}` : ''}
+                      </p>
+                    </div>
                   </div>
-                  <div>
-                    <h3 className="font-semibold text-foreground">{tenant.name}</h3>
-                    <p className="text-sm text-muted-foreground">
-                      Room {tenant.room} • Bed {tenant.bed}
-                    </p>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-menu-${tenant._id}`}>
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem data-testid={`menu-view-${tenant._id}`}>
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem data-testid={`menu-edit-${tenant._id}`}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive"
+                        onClick={() => deleteTenantMutation.mutate(tenant._id)}
+                        data-testid={`menu-delete-${tenant._id}`}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="w-4 h-4" />
+                    <span>{tenant.phone}</span>
                   </div>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span>{tenant.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  <span className="truncate">{tenant.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <MapPin className="w-4 h-4" />
-                  <span>{tenant.city}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>Joined {new Date(tenant.joinDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Monthly Rent</p>
-                  <p className="text-lg font-bold text-foreground">₹{tenant.rent.toLocaleString()}</p>
-                </div>
-                <div className="flex items-center gap-2">
-                  {tenant.kycStatus === 'verified' ? (
-                    <Badge variant="outline" className="text-xs">KYC ✓</Badge>
-                  ) : (
-                    <Badge variant="outline" className="text-xs text-warning border-warning">KYC Pending</Badge>
+                  {tenant.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4" />
+                      <span className="truncate">{tenant.email}</span>
+                    </div>
                   )}
+                  {tenant.address && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <MapPin className="w-4 h-4" />
+                      <span className="truncate">{tenant.address}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>Joined {new Date(tenant.joinDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Monthly Rent</p>
+                    <p className="text-lg font-bold text-foreground">₹{tenant.rentAmount?.toLocaleString() || 0}</p>
+                  </div>
                   {getStatusBadge(tenant.status)}
                 </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-      {filteredTenants.length === 0 && (
+      {!isLoading && filteredTenants.length === 0 && (
         <Card className="stat-card">
           <CardContent className="py-12 text-center">
-            <p className="text-muted-foreground">No tenants found matching your criteria.</p>
+            <p className="text-muted-foreground">No tenants found. Add your first tenant to get started!</p>
           </CardContent>
         </Card>
       )}
