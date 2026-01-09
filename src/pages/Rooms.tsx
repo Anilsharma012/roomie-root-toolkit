@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Plus, 
@@ -8,7 +9,8 @@ import {
   Edit,
   Eye,
   Trash2,
-  Filter
+  Filter,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -19,6 +21,7 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuTrigger as DropdownTrigger,
 } from '@/components/ui/dropdown-menu';
 import {
   Select,
@@ -27,64 +30,133 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Checkbox } from '@/components/ui/checkbox';
+import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
-const rooms = [
-  { id: 1, number: '101', floor: 1, type: 'Double', beds: 2, occupied: 2, rent: 7500, status: 'full', amenities: ['AC', 'Attached Bath'] },
-  { id: 2, number: '102', floor: 1, type: 'Triple', beds: 3, occupied: 2, rent: 6500, status: 'partial', amenities: ['Fan', 'Common Bath'] },
-  { id: 3, number: '103', floor: 1, type: 'Single', beds: 1, occupied: 0, rent: 9000, status: 'vacant', amenities: ['AC', 'Attached Bath', 'Balcony'] },
-  { id: 4, number: '201', floor: 2, type: 'Double', beds: 2, occupied: 2, rent: 8000, status: 'full', amenities: ['AC', 'Attached Bath'] },
-  { id: 5, number: '202', floor: 2, type: 'Double', beds: 2, occupied: 1, rent: 8000, status: 'partial', amenities: ['AC', 'Attached Bath'] },
-  { id: 6, number: '203', floor: 2, type: 'Triple', beds: 3, occupied: 3, rent: 7000, status: 'full', amenities: ['AC', 'Common Bath'] },
-  { id: 7, number: '301', floor: 3, type: 'Single', beds: 1, occupied: 1, rent: 9500, status: 'full', amenities: ['AC', 'Attached Bath', 'Balcony'] },
-  { id: 8, number: '302', floor: 3, type: 'Double', beds: 2, occupied: 0, rent: 8500, status: 'vacant', amenities: ['AC', 'Attached Bath'] },
-  { id: 9, number: '303', floor: 3, type: 'Triple', beds: 3, occupied: 1, rent: 7000, status: 'partial', amenities: ['Fan', 'Common Bath'] },
-  { id: 10, number: '401', floor: 4, type: 'Single', beds: 1, occupied: 0, rent: 10000, status: 'vacant', amenities: ['AC', 'Attached Bath', 'Balcony', 'Study Table'] },
-  { id: 11, number: '402', floor: 4, type: 'Double', beds: 2, occupied: 2, rent: 9000, status: 'full', amenities: ['AC', 'Attached Bath', 'Balcony'] },
-  { id: 12, number: '403', floor: 4, type: 'Double', beds: 2, occupied: 1, rent: 8500, status: 'partial', amenities: ['AC', 'Attached Bath'] },
-];
+interface Room {
+  _id: string;
+  roomNumber: string;
+  floorId: { _id: string; floorNumber: number };
+  type: string;
+  capacity: number;
+  occupiedBeds: number;
+  baseRent: number;
+  status: string;
+  amenities: string[];
+}
+
+interface Floor {
+  _id: string;
+  floorNumber: number;
+}
 
 const Rooms = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [floorFilter, setFloorFilter] = useState('all');
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newRoom, setNewRoom] = useState({
+    roomNumber: '',
+    floorId: '',
+    type: 'Double',
+    capacity: 2,
+    baseRent: 0,
+    amenities: [] as string[]
+  });
 
-  const filteredRooms = rooms.filter((room) => {
-    const matchesSearch = room.number.includes(searchQuery);
-    const matchesFloor = floorFilter === 'all' || room.floor.toString() === floorFilter;
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: rooms = [], isLoading } = useQuery<Room[]>({ queryKey: ['/api/rooms'] });
+  const { data: floors = [] } = useQuery<Floor[]>({ queryKey: ['/api/floors'] });
+
+  const addRoomMutation = useMutation({
+    mutationFn: (data: typeof newRoom) => api.post('/rooms', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
+      setIsAddDialogOpen(false);
+      setNewRoom({
+        roomNumber: '',
+        floorId: '',
+        type: 'Double',
+        capacity: 2,
+        baseRent: 0,
+        amenities: []
+      });
+      toast({ title: 'Room added successfully!' });
+    },
+    error: (err: any) => {
+      toast({ title: 'Error adding room', description: err.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteRoomMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/rooms/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
+      toast({ title: 'Room deleted successfully' });
+    }
+  });
+
+  const filteredRooms = (rooms || []).filter((room) => {
+    const matchesSearch = room.roomNumber.includes(searchQuery);
+    const matchesFloor = floorFilter === 'all' || room.floorId?._id === floorFilter;
     const matchesStatus = statusFilter === 'all' || room.status === statusFilter;
     const matchesType = typeFilter === 'all' || room.type === typeFilter;
     return matchesSearch && matchesFloor && matchesStatus && matchesType;
   });
 
-  const totalBeds = rooms.reduce((sum, r) => sum + r.beds, 0);
-  const occupiedBeds = rooms.reduce((sum, r) => sum + r.occupied, 0);
-  const vacantRooms = rooms.filter(r => r.status === 'vacant').length;
+  const totalBeds = (rooms || []).reduce((sum, r) => sum + r.capacity, 0);
+  const occupiedBeds = (rooms || []).reduce((sum, r) => sum + (r.occupiedBeds || 0), 0);
+  const vacantRooms = (rooms || []).filter(r => r.status === 'available' || r.occupiedBeds === 0).length;
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'full':
+      case 'occupied':
         return 'bg-success text-success-foreground';
-      case 'partial':
+      case 'available':
         return 'bg-warning text-warning-foreground';
-      case 'vacant':
-        return 'bg-muted text-muted-foreground';
       default:
-        return 'bg-secondary';
+        return 'bg-muted text-muted-foreground';
     }
   };
 
-  const getStatusBadge = (status: string) => {
-    switch (status) {
-      case 'full':
-        return <Badge className="bg-success/10 text-success border-success/20">Fully Occupied</Badge>;
-      case 'partial':
-        return <Badge className="bg-warning/10 text-warning border-warning/20">Partially Occupied</Badge>;
-      case 'vacant':
-        return <Badge className="bg-muted text-muted-foreground">Vacant</Badge>;
-      default:
-        return <Badge variant="secondary">{status}</Badge>;
+  const getStatusBadge = (room: Room) => {
+    if (room.occupiedBeds >= room.capacity) {
+      return <Badge className="bg-success/10 text-success border-success/20">Fully Occupied</Badge>;
     }
+    if (room.occupiedBeds > 0) {
+      return <Badge className="bg-warning/10 text-warning border-warning/20">Partially Occupied</Badge>;
+    }
+    return <Badge className="bg-muted text-muted-foreground">Vacant</Badge>;
+  };
+
+  const handleAddRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newRoom.floorId) {
+      toast({ title: 'Please select a floor', variant: 'destructive' });
+      return;
+    }
+    addRoomMutation.mutate(newRoom);
+  };
+
+  const toggleAmenity = (amenity: string) => {
+    setNewRoom(prev => ({
+      ...prev,
+      amenities: prev.amenities.includes(amenity)
+        ? prev.amenities.filter(a => a !== amenity)
+        : [...prev.amenities, amenity]
+    }));
   };
 
   return (
@@ -95,10 +167,103 @@ const Rooms = () => {
           <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Room Management</h1>
           <p className="text-muted-foreground mt-1">Manage all rooms and bed allocations</p>
         </div>
-        <Button className="btn-gradient">
-          <Plus className="w-4 h-4 mr-2" />
-          Add Room
-        </Button>
+        <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
+          <DialogTrigger asChild>
+            <Button className="btn-gradient">
+              <Plus className="w-4 h-4 mr-2" />
+              Add Room
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-md">
+            <DialogHeader>
+              <DialogTitle>Add New Room</DialogTitle>
+            </DialogHeader>
+            <form onSubmit={handleAddRoom} className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="roomNumber">Room Number</Label>
+                  <Input 
+                    id="roomNumber" 
+                    value={newRoom.roomNumber}
+                    onChange={(e) => setNewRoom({...newRoom, roomNumber: e.target.value})}
+                    placeholder="e.g. 101" 
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="floor">Floor</Label>
+                  <Select value={newRoom.floorId} onValueChange={(v) => setNewRoom({...newRoom, floorId: v})}>
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Floor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {floors.map(floor => (
+                        <SelectItem key={floor._id} value={floor._id}>Floor {floor.floorNumber}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="type">Room Type</Label>
+                  <Select value={newRoom.type} onValueChange={(v) => setNewRoom({...newRoom, type: v})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Single">Single</SelectItem>
+                      <SelectItem value="Double">Double</SelectItem>
+                      <SelectItem value="Triple">Triple</SelectItem>
+                      <SelectItem value="Four">Four Bed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="capacity">Capacity (Beds)</Label>
+                  <Input 
+                    id="capacity" 
+                    type="number"
+                    value={newRoom.capacity}
+                    onChange={(e) => setNewRoom({...newRoom, capacity: Number(e.target.value)})}
+                    min="1" 
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="rent">Base Rent</Label>
+                <Input 
+                  id="rent" 
+                  type="number"
+                  value={newRoom.baseRent}
+                  onChange={(e) => setNewRoom({...newRoom, baseRent: Number(e.target.value)})}
+                  placeholder="₹ Monthly rent" 
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Amenities</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['AC', 'Attached Bath', 'Balcony', 'Study Table', 'Fan', 'Common Bath'].map(amenity => (
+                    <div key={amenity} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={amenity} 
+                        checked={newRoom.amenities.includes(amenity)}
+                        onCheckedChange={() => toggleAmenity(amenity)}
+                      />
+                      <Label htmlFor={amenity} className="text-sm font-normal">{amenity}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Button type="submit" className="w-full btn-gradient" disabled={addRoomMutation.isPending}>
+                {addRoomMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Add Room
+              </Button>
+            </form>
+          </DialogContent>
+        </Dialog>
       </div>
 
       {/* Stats */}
@@ -177,10 +342,9 @@ const Rooms = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Floors</SelectItem>
-                  <SelectItem value="1">1st Floor</SelectItem>
-                  <SelectItem value="2">2nd Floor</SelectItem>
-                  <SelectItem value="3">3rd Floor</SelectItem>
-                  <SelectItem value="4">4th Floor</SelectItem>
+                  {floors.map(f => (
+                    <SelectItem key={f._id} value={f._id}>Floor {f.floorNumber}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <Select value={typeFilter} onValueChange={setTypeFilter}>
@@ -192,6 +356,7 @@ const Rooms = () => {
                   <SelectItem value="Single">Single</SelectItem>
                   <SelectItem value="Double">Double</SelectItem>
                   <SelectItem value="Triple">Triple</SelectItem>
+                  <SelectItem value="Four">Four Bed</SelectItem>
                 </SelectContent>
               </Select>
               <Select value={statusFilter} onValueChange={setStatusFilter}>
@@ -200,9 +365,8 @@ const Rooms = () => {
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="all">All Status</SelectItem>
-                  <SelectItem value="full">Fully Occupied</SelectItem>
-                  <SelectItem value="partial">Partial</SelectItem>
-                  <SelectItem value="vacant">Vacant</SelectItem>
+                  <SelectItem value="occupied">Fully Occupied</SelectItem>
+                  <SelectItem value="available">Available</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -211,90 +375,99 @@ const Rooms = () => {
       </Card>
 
       {/* Rooms Grid */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
-        {filteredRooms.map((room, index) => (
-          <Card 
-            key={room.id} 
-            className="stat-card hover:shadow-md transition-all animate-slide-up overflow-hidden"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <div className={`h-1.5 ${getStatusColor(room.status)}`} />
-            <CardContent className="p-4">
-              <div className="flex items-start justify-between mb-3">
-                <div>
-                  <h3 className="text-xl font-bold text-foreground">Room {room.number}</h3>
-                  <p className="text-sm text-muted-foreground">Floor {room.floor} • {room.type}</p>
-                </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit Room
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-
-              {/* Bed Status */}
-              <div className="flex gap-2 mb-3">
-                {Array.from({ length: room.beds }).map((_, i) => (
-                  <div
-                    key={i}
-                    className={`flex-1 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${
-                      i < room.occupied 
-                        ? 'bg-primary/10 text-primary border border-primary/20' 
-                        : 'bg-muted text-muted-foreground border border-border'
-                    }`}
-                  >
-                    Bed {String.fromCharCode(65 + i)}
+      {isLoading ? (
+        <div className="flex justify-center items-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+          {filteredRooms.map((room, index) => (
+            <Card 
+              key={room._id} 
+              className="stat-card hover:shadow-md transition-all animate-slide-up overflow-hidden"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <div className={`h-1.5 ${getStatusColor(room.status)}`} />
+              <CardContent className="p-4">
+                <div className="flex items-start justify-between mb-3">
+                  <div>
+                    <h3 className="text-xl font-bold text-foreground">Room {room.roomNumber}</h3>
+                    <p className="text-sm text-muted-foreground">Floor {room.floorId?.floorNumber} • {room.type}</p>
                   </div>
-                ))}
-              </div>
-
-              <div className="flex items-center justify-between mb-3">
-                <div>
-                  <p className="text-xs text-muted-foreground">Occupancy</p>
-                  <p className="text-sm font-semibold text-foreground">
-                    {room.occupied}/{room.beds} beds
-                  </p>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem>
+                        <Eye className="w-4 h-4 mr-2" />
+                        View Details
+                      </DropdownMenuItem>
+                      <DropdownMenuItem>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit Room
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive"
+                        onClick={() => deleteRoomMutation.mutate(room._id)}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Rent/bed</p>
-                  <p className="text-sm font-semibold text-foreground">₹{room.rent.toLocaleString()}</p>
+
+                {/* Bed Status */}
+                <div className="flex gap-2 mb-3">
+                  {Array.from({ length: room.capacity }).map((_, i) => (
+                    <div
+                      key={i}
+                      className={`flex-1 h-8 rounded-lg flex items-center justify-center text-xs font-medium ${
+                        i < room.occupiedBeds 
+                          ? 'bg-primary/10 text-primary border border-primary/20' 
+                          : 'bg-muted text-muted-foreground border border-border'
+                      }`}
+                    >
+                      Bed {String.fromCharCode(65 + i)}
+                    </div>
+                  ))}
                 </div>
-              </div>
 
-              {/* Amenities */}
-              <div className="flex flex-wrap gap-1 mb-3">
-                {room.amenities.map((amenity) => (
-                  <Badge key={amenity} variant="secondary" className="text-xs">
-                    {amenity}
-                  </Badge>
-                ))}
-              </div>
+                <div className="flex items-center justify-between mb-3">
+                  <div>
+                    <p className="text-xs text-muted-foreground">Occupancy</p>
+                    <p className="text-sm font-semibold text-foreground">
+                      {room.occupiedBeds}/{room.capacity} beds
+                    </p>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Rent/bed</p>
+                    <p className="text-sm font-semibold text-foreground">₹{room.baseRent?.toLocaleString()}</p>
+                  </div>
+                </div>
 
-              <div className="pt-3 border-t border-border">
-                {getStatusBadge(room.status)}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
+                {/* Amenities */}
+                <div className="flex flex-wrap gap-1 mb-3">
+                  {room.amenities?.map((amenity) => (
+                    <Badge key={amenity} variant="secondary" className="text-xs">
+                      {amenity}
+                    </Badge>
+                  ))}
+                </div>
 
-      {filteredRooms.length === 0 && (
+                <div className="pt-3 border-t border-border">
+                  {getStatusBadge(room)}
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      {!isLoading && filteredRooms.length === 0 && (
         <Card className="stat-card">
           <CardContent className="py-12 text-center">
             <p className="text-muted-foreground">No rooms found matching your criteria.</p>

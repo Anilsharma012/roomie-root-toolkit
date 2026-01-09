@@ -1,11 +1,21 @@
 import express from 'express';
+import path from 'path';
+import { fileURLToPath } from 'url';
 import Tenant from '../models/Tenant.js';
 import Bed from '../models/Bed.js';
 import Room from '../models/Room.js';
 import Activity from '../models/Activity.js';
 import { protect } from '../middleware/auth.js';
 
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
 const router = express.Router();
+
+router.get('/uploads/:filename', (req, res) => {
+  const filePath = path.join(__dirname, '../../uploads', req.params.filename);
+  res.sendFile(filePath);
+});
 
 router.get('/', protect, async (req, res) => {
   try {
