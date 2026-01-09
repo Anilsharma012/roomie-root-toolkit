@@ -27,9 +27,24 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+import PG from '../models/PG.js';
+
 router.post('/', protect, async (req, res) => {
   try {
-    const floor = new Floor(req.body);
+    let { pgId } = req.body;
+    
+    if (!pgId) {
+      const defaultPG = await PG.findOne();
+      if (!defaultPG) {
+        return res.status(400).json({ message: 'No PG found. Please initialize PG first.' });
+      }
+      pgId = defaultPG._id;
+    }
+
+    const floor = new Floor({
+      ...req.body,
+      pgId
+    });
     const savedFloor = await floor.save();
     res.status(201).json(savedFloor);
   } catch (error) {
