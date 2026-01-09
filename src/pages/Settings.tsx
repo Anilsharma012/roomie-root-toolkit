@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 import { 
   Settings as SettingsIcon,
   Building2,
@@ -28,11 +31,72 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Separator } from '@/components/ui/separator';
 
+interface PG {
+  _id: string;
+  name: string;
+  address: string;
+  phone: string;
+  email: string;
+  totalFloors: number;
+  totalBeds: number;
+  registrationNumber?: string;
+}
+
 const Settings = () => {
-  const [pgName, setPgName] = useState('Parameshwari Girls PG');
-  const [pgAddress, setPgAddress] = useState('Sector 15, Noida, Uttar Pradesh - 201301');
-  const [pgPhone, setPgPhone] = useState('+91 98765 43210');
-  const [pgEmail, setPgEmail] = useState('info@parameshwaripg.com');
+  const queryClient = useQueryClient();
+  const [formData, setFormData] = useState({
+    name: '',
+    address: '',
+    phone: '',
+    email: '',
+    totalFloors: 0,
+    totalBeds: 0
+  });
+
+  const { data: pgData, isLoading } = useQuery<PG[]>({
+    queryKey: ['/api/pgs'],
+    queryFn: async () => {
+      return apiRequest<PG[]>('/pgs');
+    }
+  });
+
+  const pg = pgData?.[0];
+
+  useEffect(() => {
+    if (pg) {
+      setFormData({
+        name: pg.name || '',
+        address: pg.address || '',
+        phone: pg.phone || '',
+        email: pg.email || '',
+        totalFloors: pg.totalFloors || 0,
+        totalBeds: pg.totalBeds || 0
+      });
+    }
+  }, [pg]);
+
+  const updateMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      if (!pg?._id) throw new Error('PG not found');
+      return apiRequest<PG>(`/pgs/${pg._id}`, {
+        method: 'PUT',
+        body: data
+      });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/pgs'] });
+      toast({ title: 'Settings saved successfully' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to save settings', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const handleSave = () => {
+    updateMutation.mutate(formData);
+  };
+
+  if (isLoading) return <div className="p-6">Loading...</div>;
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -84,8 +148,8 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>PG Name</Label>
                     <Input 
-                      value={pgName} 
-                      onChange={(e) => setPgName(e.target.value)} 
+                      value={formData.name} 
+                      onChange={(e) => setFormData({ ...formData, name: e.target.value })} 
                     />
                   </div>
                   <div className="space-y-2">
@@ -96,8 +160,8 @@ const Settings = () => {
                 <div className="space-y-2">
                   <Label>Address</Label>
                   <Textarea 
-                    value={pgAddress}
-                    onChange={(e) => setPgAddress(e.target.value)}
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
                     rows={2}
                   />
                 </div>
@@ -105,32 +169,40 @@ const Settings = () => {
                   <div className="space-y-2">
                     <Label>Phone Number</Label>
                     <Input 
-                      value={pgPhone}
-                      onChange={(e) => setPgPhone(e.target.value)}
+                      value={formData.phone}
+                      onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label>Email</Label>
                     <Input 
                       type="email"
-                      value={pgEmail}
-                      onChange={(e) => setPgEmail(e.target.value)}
+                      value={formData.email}
+                      onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                     />
                   </div>
                 </div>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label>Total Floors</Label>
-                    <Input type="number" value="4" />
+                    <Input 
+                      type="number" 
+                      value={formData.totalFloors} 
+                      onChange={(e) => setFormData({ ...formData, totalFloors: parseInt(e.target.value) || 0 })}
+                    />
                   </div>
                   <div className="space-y-2">
                     <Label>Total Beds</Label>
-                    <Input type="number" value="120" />
+                    <Input 
+                      type="number" 
+                      value={formData.totalBeds} 
+                      onChange={(e) => setFormData({ ...formData, totalBeds: parseInt(e.target.value) || 0 })}
+                    />
                   </div>
                 </div>
-                <Button className="btn-gradient">
+                <Button className="btn-gradient" onClick={handleSave} disabled={updateMutation.isPending}>
                   <Save className="w-4 h-4 mr-2" />
-                  Save Changes
+                  {updateMutation.isPending ? 'Saving...' : 'Save Changes'}
                 </Button>
               </CardContent>
             </Card>
