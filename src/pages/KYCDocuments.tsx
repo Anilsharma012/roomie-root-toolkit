@@ -300,14 +300,37 @@ const KYCDocuments = () => {
               <div>
                 <p className="text-sm text-muted-foreground mb-2">Uploaded Documents</p>
                 {selectedTenant.documents && selectedTenant.documents.length > 0 ? (
-                  <div className="space-y-2">
+                  <div className="grid grid-cols-1 gap-4">
                     {selectedTenant.documents.map((doc, idx) => (
-                      <div key={idx} className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
-                        <FileText className="w-5 h-5 text-primary" />
-                        <div className="flex-1">
-                          <p className="font-medium">{doc.type}</p>
-                          <p className="text-xs text-muted-foreground">{doc.filename}</p>
+                      <div key={idx} className="flex flex-col p-3 bg-muted/50 rounded-lg border border-border">
+                        <div className="flex items-center gap-3 mb-3">
+                          <FileText className="w-5 h-5 text-primary" />
+                          <div className="flex-1">
+                            <p className="font-medium">{doc.type}</p>
+                            <p className="text-xs text-muted-foreground">{doc.filename}</p>
+                          </div>
                         </div>
+                        {doc.filename && (
+                          <div className="rounded-md overflow-hidden bg-white border border-border aspect-video flex items-center justify-center relative group">
+                            <img 
+                              src={`/uploads/${doc.filename}`} 
+                              alt={doc.type}
+                              className="max-w-full max-h-full object-contain"
+                              onError={(e) => {
+                                (e.target as HTMLImageElement).src = '/placeholder.svg';
+                              }}
+                            />
+                            <a 
+                              href={`/uploads/${doc.filename}`} 
+                              target="_blank" 
+                              rel="noopener noreferrer"
+                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-2"
+                            >
+                              <Eye className="w-5 h-5" />
+                              View Full Size
+                            </a>
+                          </div>
+                        )}
                       </div>
                     ))}
                   </div>

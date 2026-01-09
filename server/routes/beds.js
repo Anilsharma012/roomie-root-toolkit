@@ -43,9 +43,26 @@ router.get('/:id', protect, async (req, res) => {
 
 router.post('/', protect, async (req, res) => {
   try {
-    const bed = new Bed(req.body);
+    const { bedNumber, roomId, monthlyRent } = req.body;
+    
+    if (!bedNumber || !roomId) {
+      return res.status(400).json({ message: 'Bed number and Room ID are required' });
+    }
+
+    const bed = new Bed({
+      bedNumber,
+      roomId,
+      monthlyRent: monthlyRent || 0,
+      status: 'vacant',
+      isActive: true
+    });
+    
     const savedBed = await bed.save();
-    res.status(201).json(savedBed);
+    
+    // Optional: Populate before returning
+    const populatedBed = await Bed.findById(savedBed._id).populate('roomId');
+    
+    res.status(201).json(populatedBed);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }

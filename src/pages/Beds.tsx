@@ -98,6 +98,10 @@ const Beds = () => {
 
   const handleAddBed = (e: React.FormEvent) => {
     e.preventDefault();
+    if (!newBed.roomId) {
+      toast({ title: 'Please select a room', variant: 'destructive' });
+      return;
+    }
     addBedMutation.mutate(newBed);
   };
 
