@@ -50,8 +50,36 @@ const Floors = () => {
     name: '',
     amenities: ''
   });
-  const navigate = useNavigate();
-  const { toast } = useToast();
+  const [editingFloor, setEditingFloor] = useState<Floor | null>(null);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const editFloorMutation = useMutation({
+    mutationFn: (data: { id: string; floorNumber: number; name: string; amenities: string[] }) => 
+      api.put(`/floors/${data.id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/floors'] });
+      setIsEditDialogOpen(false);
+      setEditingFloor(null);
+      toast({ title: 'Floor updated successfully!' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error updating floor', description: err.message, variant: 'destructive' });
+    }
+  });
+
+  const handleEditFloor = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editingFloor) return;
+    const data = {
+      id: editingFloor._id,
+      floorNumber: editingFloor.floorNumber,
+      name: editingFloor.name || `Floor ${editingFloor.floorNumber}`,
+      amenities: Array.isArray(editingFloor.amenities) 
+        ? editingFloor.amenities 
+        : (editingFloor.amenities as any).split(',').map((a: string) => a.trim()).filter((a: string) => a)
+    };
+    editFloorMutation.mutate(data);
+  };
   const queryClient = useQueryClient();
 
   const { data: floors = [], isLoading } = useQuery<Floor[]>({ 
@@ -276,7 +304,11 @@ const Floors = () => {
                         </Button>
                       </DropdownMenuTrigger>
                       <DropdownMenuContent align="end">
-                        <DropdownMenuItem>
+                        <DropdownMenuItem onClick={(e) => {
+                          e.stopPropagation();
+                          setEditingFloor(floor);
+                          setIsEditDialogOpen(true);
+                        }}>
                           <Edit className="w-4 h-4 mr-2" />
                           Edit Floor
                         </DropdownMenuItem>
@@ -301,6 +333,48 @@ const Floors = () => {
           ))
         )}
       </div>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Floor</DialogTitle>
+          </DialogHeader>
+          {editingFloor && (
+            <form onSubmit={handleEditFloor} className="space-y-4 py-4">
+              <div className="space-y-2">
+                <Label htmlFor="edit-floorNumber">Floor Number</Label>
+                <Input 
+                  id="edit-floorNumber"
+                  type="number" 
+                  value={editingFloor.floorNumber}
+                  onChange={(e) => setEditingFloor({...editingFloor, floorNumber: Number(e.target.value)})}
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-floorName">Floor Name</Label>
+                <Input 
+                  id="edit-floorName"
+                  value={editingFloor.name}
+                  onChange={(e) => setEditingFloor({...editingFloor, name: e.target.value})}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-amenities">Amenities (comma separated)</Label>
+                <Input 
+                  id="edit-amenities"
+                  value={Array.isArray(editingFloor.amenities) ? editingFloor.amenities.join(', ') : editingFloor.amenities}
+                  onChange={(e) => setEditingFloor({...editingFloor, amenities: e.target.value as any})}
+                />
+              </div>
+              <Button type="submit" className="w-full btn-gradient" disabled={editFloorMutation.isPending}>
+                {editFloorMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };

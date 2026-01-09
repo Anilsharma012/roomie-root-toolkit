@@ -311,17 +311,17 @@ const KYCDocuments = () => {
                           </div>
                         </div>
                         {doc.filename && (
-                          <div className="rounded-md overflow-hidden bg-white border border-border aspect-video flex items-center justify-center relative group">
+                          <div className="rounded-md overflow-hidden bg-white border border-border flex items-center justify-center relative group min-h-[300px]">
                             {doc.filename.toLowerCase().endsWith('.pdf') ? (
-                              <div className="flex flex-col items-center gap-2">
-                                <FileText className="w-12 h-12 text-destructive" />
+                              <div className="flex flex-col items-center gap-2 p-8">
+                                <FileText className="w-16 h-16 text-destructive" />
                                 <span className="text-sm font-medium">PDF Document</span>
                               </div>
                             ) : (
                               <img 
                                 src={`/api/tenants/uploads/${doc.filename}`} 
                                 alt={doc.type}
-                                className="max-w-full max-h-full object-contain"
+                                className="w-full h-auto max-h-[600px] object-contain"
                                 onError={(e) => {
                                   (e.target as HTMLImageElement).src = '/placeholder.svg';
                                 }}

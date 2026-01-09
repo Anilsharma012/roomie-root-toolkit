@@ -74,8 +74,29 @@ const Rooms = () => {
     amenities: [] as string[]
   });
 
-  const { toast } = useToast();
-  const queryClient = useQueryClient();
+  const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+
+  const editRoomMutation = useMutation({
+    mutationFn: (data: any) => api.put(`/rooms/${data._id}`, data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/rooms'] });
+      setIsEditDialogOpen(false);
+      setSelectedRoom(null);
+      toast({ title: 'Room updated successfully!' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error updating room', description: err.message, variant: 'destructive' });
+    }
+  });
+
+  const handleEditRoom = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (selectedRoom) {
+      editRoomMutation.mutate(selectedRoom);
+    }
+  };
 
   const { data: rooms = [], isLoading } = useQuery<Room[]>({ queryKey: ['/api/rooms'] });
   const { data: floors = [] } = useQuery<Floor[]>({ queryKey: ['/api/floors'] });
@@ -401,11 +422,17 @@ const Rooms = () => {
                       </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedRoom(room);
+                        setIsViewDialogOpen(true);
+                      }}>
                         <Eye className="w-4 h-4 mr-2" />
                         View Details
                       </DropdownMenuItem>
-                      <DropdownMenuItem>
+                      <DropdownMenuItem onClick={() => {
+                        setSelectedRoom(room);
+                        setIsEditDialogOpen(true);
+                      }}>
                         <Edit className="w-4 h-4 mr-2" />
                         Edit Room
                       </DropdownMenuItem>
@@ -474,6 +501,154 @@ const Rooms = () => {
           </CardContent>
         </Card>
       )}
+
+      {/* View Details Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Room Details - {selectedRoom?.roomNumber}</DialogTitle>
+          </DialogHeader>
+          {selectedRoom && (
+            <div className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <Label className="text-muted-foreground">Floor</Label>
+                  <p className="font-medium">Floor {selectedRoom.floorId?.floorNumber}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Type</Label>
+                  <p className="font-medium">{selectedRoom.type}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Capacity</Label>
+                  <p className="font-medium">{selectedRoom.capacity} Beds</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Occupied</Label>
+                  <p className="font-medium">{selectedRoom.occupiedBeds} Beds</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Base Rent</Label>
+                  <p className="font-medium">₹{selectedRoom.baseRent?.toLocaleString()}</p>
+                </div>
+                <div>
+                  <Label className="text-muted-foreground">Status</Label>
+                  <div>{getStatusBadge(selectedRoom)}</div>
+                </div>
+              </div>
+              <div>
+                <Label className="text-muted-foreground">Amenities</Label>
+                <div className="flex flex-wrap gap-1 mt-1">
+                  {selectedRoom.amenities?.map(a => (
+                    <Badge key={a} variant="secondary">{a}</Badge>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Edit Room Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Edit Room - {selectedRoom?.roomNumber}</DialogTitle>
+          </DialogHeader>
+          {selectedRoom && (
+            <form onSubmit={handleEditRoom} className="space-y-4 py-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-roomNumber">Room Number</Label>
+                  <Input 
+                    id="edit-roomNumber" 
+                    value={selectedRoom.roomNumber}
+                    onChange={(e) => setSelectedRoom({...selectedRoom, roomNumber: e.target.value})}
+                    required 
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-floor">Floor</Label>
+                  <Select 
+                    value={selectedRoom.floorId?._id} 
+                    onValueChange={(v) => setSelectedRoom({...selectedRoom, floorId: { ...selectedRoom.floorId, _id: v }})}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select Floor" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {floors.map(floor => (
+                        <SelectItem key={floor._id} value={floor._id}>Floor {floor.floorNumber}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <Label htmlFor="edit-type">Room Type</Label>
+                  <Select value={selectedRoom.type} onValueChange={(v) => setSelectedRoom({...selectedRoom, type: v})}>
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="Single">Single</SelectItem>
+                      <SelectItem value="Double">Double</SelectItem>
+                      <SelectItem value="Triple">Triple</SelectItem>
+                      <SelectItem value="Four">Four Bed</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="edit-capacity">Capacity (Beds)</Label>
+                  <Input 
+                    id="edit-capacity" 
+                    type="number"
+                    value={selectedRoom.capacity}
+                    onChange={(e) => setSelectedRoom({...selectedRoom, capacity: Number(e.target.value)})}
+                    min="1" 
+                    required 
+                  />
+                </div>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-rent">Base Rent</Label>
+                <Input 
+                  id="edit-rent" 
+                  type="number"
+                  value={selectedRoom.baseRent}
+                  onChange={(e) => setSelectedRoom({...selectedRoom, baseRent: Number(e.target.value)})}
+                  required 
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>Amenities</Label>
+                <div className="grid grid-cols-2 gap-2">
+                  {['AC', 'Attached Bath', 'Balcony', 'Study Table', 'Fan', 'Common Bath'].map(amenity => (
+                    <div key={amenity} className="flex items-center space-x-2">
+                      <Checkbox 
+                        id={`edit-${amenity}`} 
+                        checked={selectedRoom.amenities?.includes(amenity)}
+                        onCheckedChange={() => {
+                          const amenities = selectedRoom.amenities?.includes(amenity)
+                            ? selectedRoom.amenities.filter(a => a !== amenity)
+                            : [...(selectedRoom.amenities || []), amenity];
+                          setSelectedRoom({ ...selectedRoom, amenities });
+                        }}
+                      />
+                      <Label htmlFor={`edit-${amenity}`} className="text-sm font-normal">{amenity}</Label>
+                    </div>
+                  ))}
+                </div>
+              </div>
+              <Button type="submit" className="w-full btn-gradient" disabled={editRoomMutation.isPending}>
+                {editRoomMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
+                Save Changes
+              </Button>
+            </form>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
