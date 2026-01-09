@@ -311,31 +311,41 @@ const KYCDocuments = () => {
                           </div>
                         </div>
                         {doc.filename && (
-                          <div className="rounded-md overflow-hidden bg-white border border-border flex items-center justify-center relative group min-h-[300px]">
+                          <div className="rounded-md overflow-hidden bg-white border border-border flex items-center justify-center relative group min-h-[400px]">
                             {doc.filename.toLowerCase().endsWith('.pdf') ? (
                               <div className="flex flex-col items-center gap-2 p-8">
                                 <FileText className="w-16 h-16 text-destructive" />
                                 <span className="text-sm font-medium">PDF Document</span>
+                                <Button variant="outline" size="sm" asChild>
+                                  <a href={`/api/tenants/uploads/${doc.filename}`} target="_blank" rel="noopener noreferrer">
+                                    Open PDF
+                                  </a>
+                                </Button>
                               </div>
                             ) : (
                               <img 
                                 src={`/api/tenants/uploads/${doc.filename}`} 
                                 alt={doc.type}
-                                className="w-full h-auto max-h-[600px] object-contain"
+                                className="w-full h-auto max-h-[800px] object-contain"
                                 onError={(e) => {
+                                  console.error("Image load error:", doc.filename);
                                   (e.target as HTMLImageElement).src = '/placeholder.svg';
                                 }}
                               />
                             )}
-                            <a 
-                              href={`/api/tenants/uploads/${doc.filename}`} 
-                              target="_blank" 
-                              rel="noopener noreferrer"
-                              className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-2"
-                            >
-                              <Eye className="w-5 h-5" />
-                              View Full Size
-                            </a>
+                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-3">
+                              <Button variant="secondary" size="sm" asChild>
+                                <a 
+                                  href={`/api/tenants/uploads/${doc.filename}`} 
+                                  target="_blank" 
+                                  rel="noopener noreferrer"
+                                  className="flex items-center gap-2"
+                                >
+                                  <Eye className="w-4 h-4" />
+                                  View Full Size
+                                </a>
+                              </Button>
+                            </div>
                           </div>
                         )}
                       </div>
