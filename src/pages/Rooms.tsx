@@ -95,7 +95,7 @@ const Rooms = () => {
       });
       toast({ title: 'Room added successfully!' });
     },
-    error: (err: any) => {
+    onError: (err: any) => {
       toast({ title: 'Error adding room', description: err.message, variant: 'destructive' });
     }
   });
