@@ -95,7 +95,7 @@ const Security = () => {
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest('/visitors', { method: 'POST', body: JSON.stringify(data) });
+      return apiRequest('/visitors', { method: 'POST', body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
