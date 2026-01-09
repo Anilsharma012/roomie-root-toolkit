@@ -27,6 +27,16 @@ import Beds from "./pages/Beds";
 import CheckInOut from "./pages/CheckInOut";
 import Payments from "./pages/Payments";
 import KYCDocuments from "./pages/KYCDocuments";
+import DueManagement from "./pages/DueManagement";
+import Receipts from "./pages/Receipts";
+import Categories from "./pages/Categories";
+import ItemsList from "./pages/ItemsList";
+import StockManagement from "./pages/StockManagement";
+import Vendors from "./pages/Vendors";
+import Alerts from "./pages/Alerts";
+import Laundry from "./pages/Laundry";
+import Housekeeping from "./pages/Housekeeping";
+import Maintenance from "./pages/Maintenance";
 import NotFound from "./pages/NotFound";
 import { apiRequest } from "./lib/api";
 
@@ -72,21 +82,21 @@ const App = () => (
             {/* Billing */}
             <Route path="/billing/generate" element={<AdminLayout><Billing /></AdminLayout>} />
             <Route path="/billing/payments" element={<AdminLayout><Payments /></AdminLayout>} />
-            <Route path="/billing/dues" element={<AdminLayout><Billing /></AdminLayout>} />
-            <Route path="/billing/receipts" element={<AdminLayout><Billing /></AdminLayout>} />
+            <Route path="/billing/dues" element={<AdminLayout><DueManagement /></AdminLayout>} />
+            <Route path="/billing/receipts" element={<AdminLayout><Receipts /></AdminLayout>} />
             
             {/* Inventory */}
-            <Route path="/inventory/categories" element={<AdminLayout><Inventory /></AdminLayout>} />
-            <Route path="/inventory/items" element={<AdminLayout><Inventory /></AdminLayout>} />
-            <Route path="/inventory/stock" element={<AdminLayout><Inventory /></AdminLayout>} />
-            <Route path="/inventory/vendors" element={<AdminLayout><Placeholder /></AdminLayout>} />
-            <Route path="/inventory/alerts" element={<AdminLayout><Inventory /></AdminLayout>} />
+            <Route path="/inventory/categories" element={<AdminLayout><Categories /></AdminLayout>} />
+            <Route path="/inventory/items" element={<AdminLayout><ItemsList /></AdminLayout>} />
+            <Route path="/inventory/stock" element={<AdminLayout><StockManagement /></AdminLayout>} />
+            <Route path="/inventory/vendors" element={<AdminLayout><Vendors /></AdminLayout>} />
+            <Route path="/inventory/alerts" element={<AdminLayout><Alerts /></AdminLayout>} />
             
             {/* Services */}
             <Route path="/services/food" element={<AdminLayout><Services /></AdminLayout>} />
-            <Route path="/services/laundry" element={<AdminLayout><Services /></AdminLayout>} />
-            <Route path="/services/housekeeping" element={<AdminLayout><Services /></AdminLayout>} />
-            <Route path="/services/maintenance" element={<AdminLayout><Services /></AdminLayout>} />
+            <Route path="/services/laundry" element={<AdminLayout><Laundry /></AdminLayout>} />
+            <Route path="/services/housekeeping" element={<AdminLayout><Housekeeping /></AdminLayout>} />
+            <Route path="/services/maintenance" element={<AdminLayout><Maintenance /></AdminLayout>} />
             
             {/* Other */}
             <Route path="/complaints" element={<AdminLayout><Complaints /></AdminLayout>} />
