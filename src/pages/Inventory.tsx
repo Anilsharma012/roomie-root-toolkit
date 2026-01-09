@@ -96,7 +96,11 @@ const Inventory = () => {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: (data: typeof newItem) => api.post('/inventory', data),
+    mutationFn: (data: typeof newItem) => api.post('/inventory', {
+      ...data,
+      purchasePrice: Number(data.purchasePrice),
+      quantity: Number(data.quantity)
+    }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
       setIsAddDialogOpen(false);
