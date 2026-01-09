@@ -46,17 +46,13 @@ export default function ItemsList() {
   const { data: items = [], isLoading } = useQuery<InventoryItem[]>({
     queryKey: ['/api/inventory'],
     queryFn: async () => {
-      const response = await apiRequest('/inventory');
-      const data = await response.json();
-      return data as InventoryItem[];
+      return apiRequest('/inventory');
     }
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      const response = await apiRequest('/inventory', { method: 'POST', body: JSON.stringify(data) });
-      const result = await response.json();
-      return result;
+      return apiRequest('/inventory', { method: 'POST', body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
@@ -71,7 +67,7 @@ export default function ItemsList() {
 
   const updateMutation = useMutation({
     mutationFn: async ({ id, data }: { id: string; data: typeof formData }) => {
-      return apiRequest(`/inventory/${id}`, { method: 'PUT', body: JSON.stringify(data) });
+      return apiRequest(`/inventory/${id}`, { method: 'PUT', body: data });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
