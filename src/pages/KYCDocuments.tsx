@@ -269,112 +269,130 @@ const KYCDocuments = () => {
       </Card>
 
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              KYC Verification - {selectedTenant?.name}
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Shield className="w-5 h-5 text-primary" />
+                <span>KYC Verification</span>
+              </div>
+              {selectedTenant && getKYCBadge(selectedTenant.kycStatus)}
             </DialogTitle>
           </DialogHeader>
+
           {selectedTenant && (
-            <div className="space-y-6 py-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Name</p>
-                  <p className="font-medium">{selectedTenant.name}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Phone</p>
-                  <p className="font-medium">{selectedTenant.phone}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Aadhar Number</p>
-                  <p className="font-medium font-mono">{selectedTenant.aadharNumber || 'Not provided'}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Current Status</p>
-                  {getKYCBadge(selectedTenant.kycStatus)}
+            <div className="space-y-6 py-6">
+              {/* Tenant Profile Section */}
+              <div className="bg-muted/30 rounded-xl p-4 border border-border/50">
+                <div className="flex flex-col md:flex-row gap-6">
+                  <div className="flex-1 grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Full Name</p>
+                      <p className="font-semibold text-lg">{selectedTenant.name}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Phone Number</p>
+                      <p className="font-semibold">{selectedTenant.phone}</p>
+                    </div>
+                    <div className="space-y-1">
+                      <p className="text-xs font-medium text-muted-foreground uppercase tracking-wider">Aadhar Number</p>
+                      <p className="font-mono font-semibold text-primary">{selectedTenant.aadharNumber || 'Not provided'}</p>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              <div>
-                <p className="text-sm text-muted-foreground mb-2">Uploaded Documents</p>
+              {/* Documents Section */}
+              <div className="space-y-4">
+                <div className="flex items-center gap-2 border-b pb-2">
+                  <FileText className="w-4 h-4 text-primary" />
+                  <h3 className="font-semibold">Identity Documents</h3>
+                </div>
+
                 {selectedTenant.documents && selectedTenant.documents.length > 0 ? (
-                  <div className="grid grid-cols-1 gap-4">
+                  <div className="grid grid-cols-1 gap-8">
                     {selectedTenant.documents.map((doc, idx) => (
-                      <div key={idx} className="flex flex-col p-3 bg-muted/50 rounded-lg border border-border">
-                        <div className="flex items-center gap-3 mb-3">
-                          <FileText className="w-5 h-5 text-primary" />
-                          <div className="flex-1">
-                            <p className="font-medium">{doc.type}</p>
-                            <p className="text-xs text-muted-foreground">{doc.filename}</p>
+                      <div key={idx} className="space-y-3">
+                        <div className="flex items-center justify-between">
+                          <div className="flex items-center gap-2">
+                            <Badge variant="outline" className="bg-primary/5 capitalize">
+                              {doc.type.replace(/([A-Z])/g, ' $1').trim()}
+                            </Badge>
+                            <span className="text-xs text-muted-foreground font-mono">
+                              {doc.filename}
+                            </span>
                           </div>
                         </div>
-                        {doc.filename && (
-                          <div className="rounded-md overflow-hidden bg-white border border-border flex items-center justify-center relative group min-h-[400px]">
-                            {doc.filename.toLowerCase().endsWith('.pdf') ? (
-                              <div className="flex flex-col items-center gap-2 p-8">
-                                <FileText className="w-16 h-16 text-destructive" />
-                                <span className="text-sm font-medium">PDF Document</span>
-                                <Button variant="outline" size="sm" asChild>
+
+                        <div className="relative group rounded-xl border-2 border-dashed border-border overflow-hidden bg-muted/20 min-h-[400px] flex items-center justify-center">
+                          {doc.filename.toLowerCase().endsWith('.pdf') ? (
+                            <div className="flex flex-col items-center gap-4 p-12">
+                              <div className="w-20 h-20 rounded-2xl bg-destructive/10 flex items-center justify-center">
+                                <FileText className="w-10 h-10 text-destructive" />
+                              </div>
+                              <div className="text-center">
+                                <p className="font-bold">PDF Document</p>
+                                <p className="text-sm text-muted-foreground mb-4">Click to view in browser</p>
+                                <Button variant="default" size="sm" asChild>
                                   <a href={`/api/tenants/uploads/${doc.filename}`} target="_blank" rel="noopener noreferrer">
-                                    Open PDF
+                                    Open Document
                                   </a>
                                 </Button>
                               </div>
-                            ) : (
+                            </div>
+                          ) : (
+                            <>
                               <img 
                                 src={`/api/tenants/uploads/${doc.filename}`} 
                                 alt={doc.type}
-                                className="w-full h-auto max-h-[800px] object-contain"
+                                className="w-full h-auto max-h-[800px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
                                 onError={(e) => {
                                   console.error("Image load error:", doc.filename);
                                   (e.target as HTMLImageElement).src = '/placeholder.svg';
                                 }}
                               />
-                            )}
-                            <div className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center text-white gap-3">
-                              <Button variant="secondary" size="sm" asChild>
-                                <a 
-                                  href={`/api/tenants/uploads/${doc.filename}`} 
-                                  target="_blank" 
-                                  rel="noopener noreferrer"
-                                  className="flex items-center gap-2"
-                                >
-                                  <Eye className="w-4 h-4" />
-                                  View Full Size
-                                </a>
-                              </Button>
-                            </div>
-                          </div>
-                        )}
+                              <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-all duration-300 flex items-center justify-center">
+                                <Button variant="secondary" className="gap-2 shadow-xl" asChild>
+                                  <a href={`/api/tenants/uploads/${doc.filename}`} target="_blank" rel="noopener noreferrer">
+                                    <Eye className="w-4 h-4" />
+                                    View Full Size
+                                  </a>
+                                </Button>
+                              </div>
+                            </>
+                          )}
+                        </div>
                       </div>
                     ))}
                   </div>
                 ) : (
-                  <p className="text-muted-foreground">No documents uploaded</p>
+                  <div className="flex flex-col items-center justify-center py-12 bg-muted/20 rounded-xl border border-dashed border-border">
+                    <FileText className="w-12 h-12 text-muted-foreground/30 mb-2" />
+                    <p className="text-muted-foreground font-medium">No documents uploaded for this tenant</p>
+                  </div>
                 )}
               </div>
 
-              <div className="flex gap-3 pt-4 border-t">
+              {/* Action Buttons */}
+              <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t mt-8">
                 <Button 
-                  className="flex-1 bg-success hover:bg-success/90 text-white"
+                  className="flex-1 h-12 bg-success hover:bg-success/90 text-white font-bold text-base shadow-lg shadow-success/20 transition-all hover:scale-[1.02]"
                   onClick={() => updateKYCMutation.mutate({ id: selectedTenant._id, kycStatus: 'verified' })}
                   disabled={updateKYCMutation.isPending}
                   data-testid="button-verify"
                 >
-                  <CheckCircle2 className="w-4 h-4 mr-2" />
-                  Verify KYC
+                  <CheckCircle2 className="w-5 h-5 mr-2" />
+                  Approve & Verify KYC
                 </Button>
                 <Button 
                   variant="destructive"
-                  className="flex-1"
+                  className="flex-1 h-12 font-bold text-base shadow-lg shadow-destructive/20 transition-all hover:scale-[1.02]"
                   onClick={() => updateKYCMutation.mutate({ id: selectedTenant._id, kycStatus: 'rejected' })}
                   disabled={updateKYCMutation.isPending}
                   data-testid="button-reject"
                 >
-                  <XCircle className="w-4 h-4 mr-2" />
-                  Reject
+                  <XCircle className="w-5 h-5 mr-2" />
+                  Reject Verification
                 </Button>
               </div>
             </div>
