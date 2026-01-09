@@ -193,7 +193,7 @@ const Rooms = () => {
                 <div className="space-y-2">
                   <Label htmlFor="floor">Floor</Label>
                   <Select value={newRoom.floorId} onValueChange={(v) => setNewRoom({...newRoom, floorId: v})}>
-                    <SelectTrigger>
+                    <SelectTrigger id="floor-select">
                       <SelectValue placeholder="Select Floor" />
                     </SelectTrigger>
                     <SelectContent>
