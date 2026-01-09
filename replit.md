@@ -50,11 +50,17 @@ A complete PG (Paying Guest) management solution with MongoDB Atlas integration.
 - Dashboard with real-time analytics from MongoDB
 - Tenant management with CRUD operations
 - Room and floor management
-- Billing and expenses tracking
-- Inventory management
+- Billing and expenses tracking with Due Management and Receipts
+- Inventory management with Categories, Items, Stock tracking, Vendors, Alerts
+- Services management (Laundry, Housekeeping, Maintenance)
 - Staff management
 - JWT-based authentication
 - Real-time data synchronization
+
+## Page Structure
+- **Billing**: Generate Bills, Payments, Due Management, Receipts
+- **Inventory**: Categories, Items List, Stock Management, Vendors, Alerts
+- **Services**: Food, Laundry, Housekeeping, Maintenance
 
 ## Running the Project
 The application uses concurrently to run both servers:

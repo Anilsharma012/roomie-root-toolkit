@@ -141,7 +141,7 @@ export default function Receipts() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <Card>
+        <Card data-testid="card-total-collected">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-green-100">
@@ -149,12 +149,12 @@ export default function Receipts() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Collected</p>
-                <p className="text-2xl font-bold text-green-600">₹{totalCollected.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-green-600" data-testid="text-total-collected">₹{totalCollected.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-total-receipts">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-blue-100">
@@ -162,12 +162,12 @@ export default function Receipts() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Receipts</p>
-                <p className="text-2xl font-bold">{filteredPayments.length}</p>
+                <p className="text-2xl font-bold" data-testid="text-receipt-count">{filteredPayments.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-this-month">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-purple-100">
@@ -175,7 +175,7 @@ export default function Receipts() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">This Month</p>
-                <p className="text-2xl font-bold">
+                <p className="text-2xl font-bold" data-testid="text-month-count">
                   {payments.filter((p: Payment) => {
                     const date = new Date(p.paymentDate);
                     const today = new Date();
@@ -314,7 +314,7 @@ export default function Receipts() {
                                   <p className="text-sm text-muted-foreground">Amount Paid</p>
                                   <p className="text-3xl font-bold text-green-600">₹{payment.amount?.toLocaleString()}</p>
                                 </div>
-                                <Button onClick={() => handlePrintReceipt(payment)} className="w-full">
+                                <Button onClick={() => handlePrintReceipt(payment)} className="w-full" data-testid={`button-print-dialog-${payment._id}`}>
                                   <Printer className="w-4 h-4 mr-2" />
                                   Print Receipt
                                 </Button>

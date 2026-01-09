@@ -97,7 +97,7 @@ export default function DueManagement() {
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
+        <Card data-testid="card-total-due">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-red-100">
@@ -105,12 +105,12 @@ export default function DueManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Due</p>
-                <p className="text-2xl font-bold text-red-600">₹{totalDue.toLocaleString()}</p>
+                <p className="text-2xl font-bold text-red-600" data-testid="text-total-due-amount">₹{totalDue.toLocaleString()}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-overdue-bills">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-orange-100">
@@ -118,12 +118,12 @@ export default function DueManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Overdue Bills</p>
-                <p className="text-2xl font-bold">{overdueBills.length}</p>
+                <p className="text-2xl font-bold" data-testid="text-overdue-count">{overdueBills.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-pending-bills">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-yellow-100">
@@ -131,12 +131,12 @@ export default function DueManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Pending Bills</p>
-                <p className="text-2xl font-bold">{pendingBills.length}</p>
+                <p className="text-2xl font-bold" data-testid="text-pending-count">{pendingBills.length}</p>
               </div>
             </div>
           </CardContent>
         </Card>
-        <Card>
+        <Card data-testid="card-total-tenants">
           <CardContent className="pt-6">
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-lg bg-blue-100">
@@ -144,7 +144,7 @@ export default function DueManagement() {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Tenants</p>
-                <p className="text-2xl font-bold">{filteredBills.length}</p>
+                <p className="text-2xl font-bold" data-testid="text-tenant-count">{filteredBills.length}</p>
               </div>
             </div>
           </CardContent>
@@ -268,6 +268,7 @@ export default function DueManagement() {
                                 className="flex-1"
                                 onClick={() => sendReminderMutation.mutate(bill._id)}
                                 disabled={sendReminderMutation.isPending}
+                                data-testid={`button-send-reminder-${bill._id}`}
                               >
                                 <Send className="w-4 h-4 mr-2" />
                                 Send Reminder
