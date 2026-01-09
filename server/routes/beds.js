@@ -41,17 +41,28 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+import PG from '../models/PG.js';
+
 router.post('/', protect, async (req, res) => {
   try {
-    const { bedNumber, roomId, monthlyRent } = req.body;
+    let { bedNumber, roomId, monthlyRent, pgId } = req.body;
     
     if (!bedNumber || !roomId) {
       return res.status(400).json({ message: 'Bed number and Room ID are required' });
     }
 
+    if (!pgId) {
+      const defaultPG = await PG.findOne();
+      if (!defaultPG) {
+        return res.status(400).json({ message: 'No PG found. Please initialize PG first.' });
+      }
+      pgId = defaultPG._id;
+    }
+
     const bed = new Bed({
       bedNumber,
       roomId,
+      pgId,
       monthlyRent: monthlyRent || 0,
       status: 'vacant',
       isActive: true

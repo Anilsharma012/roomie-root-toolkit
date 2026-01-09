@@ -74,6 +74,9 @@ const Rooms = () => {
     amenities: [] as string[]
   });
 
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);

@@ -50,6 +50,10 @@ const Floors = () => {
     name: '',
     amenities: ''
   });
+  const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
   const [editingFloor, setEditingFloor] = useState<Floor | null>(null);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
 
@@ -80,7 +84,6 @@ const Floors = () => {
     };
     editFloorMutation.mutate(data);
   };
-  const queryClient = useQueryClient();
 
   const { data: floors = [], isLoading } = useQuery<Floor[]>({ 
     queryKey: ['/api/floors'] 
