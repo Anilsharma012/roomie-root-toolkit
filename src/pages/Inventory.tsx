@@ -96,10 +96,15 @@ const Inventory = () => {
   });
 
   const addItemMutation = useMutation({
-    mutationFn: (data: typeof newItem) => api.post('/inventory', {
-      ...data,
+    mutationFn: (data: typeof newItem) => api.post<InventoryItem>('/inventory', {
+      name: data.name,
+      category: data.category,
+      quantity: Number(data.quantity),
+      unit: data.unit,
       purchasePrice: Number(data.purchasePrice),
-      quantity: Number(data.quantity)
+      condition: data.condition,
+      location: data.location,
+      notes: data.notes
     }),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
