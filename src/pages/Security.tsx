@@ -1,4 +1,7 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { apiRequest } from '@/lib/api';
+import { toast } from '@/hooks/use-toast';
 import { 
   Search, 
   Plus, 
@@ -49,127 +52,96 @@ import {
 } from '@/components/ui/table';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 
-const visitorLogs = [
-  {
-    id: 1,
-    visitorName: 'Rajesh Kumar',
-    relation: 'Father',
-    visitingTenant: 'Priya Sharma',
-    room: '201',
-    purpose: 'Family Visit',
-    phone: '+91 98765 00001',
-    entryTime: '2024-02-05T10:30:00',
-    exitTime: '2024-02-05T14:00:00',
-    idType: 'Aadhar Card',
-    status: 'exited',
-  },
-  {
-    id: 2,
-    visitorName: 'Sunita Devi',
-    relation: 'Mother',
-    visitingTenant: 'Anita Verma',
-    room: '105',
-    purpose: 'Family Visit',
-    phone: '+91 98765 00002',
-    entryTime: '2024-02-05T11:00:00',
-    exitTime: null,
-    idType: 'Voter ID',
-    status: 'inside',
-  },
-  {
-    id: 3,
-    visitorName: 'Delivery Boy',
-    relation: 'N/A',
-    visitingTenant: 'Meera Singh',
-    room: '203',
-    purpose: 'Parcel Delivery',
-    phone: '+91 98765 00003',
-    entryTime: '2024-02-05T12:15:00',
-    exitTime: '2024-02-05T12:20:00',
-    idType: 'Company ID',
-    status: 'exited',
-  },
-  {
-    id: 4,
-    visitorName: 'Dr. Sharma',
-    relation: 'N/A',
-    visitingTenant: 'Ritu Gupta',
-    room: '305',
-    purpose: 'Medical Checkup',
-    phone: '+91 98765 00004',
-    entryTime: '2024-02-05T09:00:00',
-    exitTime: '2024-02-05T09:45:00',
-    idType: 'Medical License',
-    status: 'exited',
-  },
-];
-
-const nightEntryLogs = [
-  {
-    id: 1,
-    tenant: 'Priya Sharma',
-    room: '201',
-    entryTime: '2024-02-04T22:30:00',
-    reason: 'Late from office',
-    approvedBy: 'Warden',
-  },
-  {
-    id: 2,
-    tenant: 'Meera Singh',
-    room: '203',
-    entryTime: '2024-02-04T23:15:00',
-    reason: 'Movie with friends',
-    approvedBy: 'Warden',
-  },
-  {
-    id: 3,
-    tenant: 'Pooja Reddy',
-    room: '402',
-    entryTime: '2024-02-03T21:45:00',
-    reason: 'Family dinner',
-    approvedBy: 'Warden',
-  },
-];
-
-const gatePassRequests = [
-  {
-    id: 1,
-    tenant: 'Anita Verma',
-    room: '105',
-    type: 'Weekend',
-    fromDate: '2024-02-10',
-    toDate: '2024-02-11',
-    destination: 'Delhi',
-    status: 'approved',
-  },
-  {
-    id: 2,
-    tenant: 'Shalini Das',
-    room: '108',
-    type: 'Emergency',
-    fromDate: '2024-02-06',
-    toDate: '2024-02-08',
-    destination: 'Kolkata',
-    status: 'pending',
-  },
-  {
-    id: 3,
-    tenant: 'Ritu Gupta',
-    room: '305',
-    type: 'Holiday',
-    fromDate: '2024-02-15',
-    toDate: '2024-02-20',
-    destination: 'Lucknow',
-    status: 'approved',
-  },
-];
+interface Visitor {
+  _id: string;
+  visitorName: string;
+  relation: string;
+  tenantId: {
+    _id: string;
+    name: string;
+    roomId: {
+      roomNumber: string;
+    };
+  };
+  purpose: string;
+  phone: string;
+  idType: string;
+  entryTime: string;
+  exitTime?: string;
+  status: 'inside' | 'exited';
+}
 
 const Security = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [isAddVisitorOpen, setIsAddVisitorOpen] = useState(false);
+  const [formData, setFormData] = useState({
+    visitorName: '',
+    relation: '',
+    idType: '',
+    tenantId: '',
+    phone: '',
+    purpose: ''
+  });
+
+  const queryClient = useQueryClient();
+
+  const { data: visitorLogs = [], isLoading } = useQuery<Visitor[]>({
+    queryKey: ['/api/visitors'],
+  });
+
+  const { data: tenants = [] } = useQuery<any[]>({
+    queryKey: ['/api/tenants'],
+  });
+
+  const createMutation = useMutation({
+    mutationFn: async (data: typeof formData) => {
+      return apiRequest('/visitors', { method: 'POST', body: JSON.stringify(data) });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
+      toast({ title: 'Visitor registered successfully' });
+      setIsAddVisitorOpen(false);
+      setFormData({
+        visitorName: '',
+        relation: '',
+        idType: '',
+        tenantId: '',
+        phone: '',
+        purpose: ''
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to register visitor', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const exitMutation = useMutation({
+    mutationFn: async (id: string) => {
+      return apiRequest(`/visitors/${id}/exit`, { method: 'PATCH' });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/visitors'] });
+      toast({ title: 'Visitor marked as exited' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to mark exit', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const handleSubmit = () => {
+    if (!formData.visitorName || !formData.tenantId || !formData.phone || !formData.purpose) {
+      toast({ title: 'Please fill all required fields', variant: 'destructive' });
+      return;
+    }
+    createMutation.mutate(formData);
+  };
 
   const visitorsInside = visitorLogs.filter(v => v.status === 'inside').length;
   const todayVisitors = visitorLogs.length;
+
+  if (isLoading) {
+    return <div className="p-6">Loading...</div>;
+  }
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -193,12 +165,16 @@ const Security = () => {
             <div className="space-y-4 py-4">
               <div className="space-y-2">
                 <Label>Visitor Name</Label>
-                <Input placeholder="Enter visitor name" />
+                <Input 
+                  placeholder="Enter visitor name" 
+                  value={formData.visitorName}
+                  onChange={(e) => setFormData({ ...formData, visitorName: e.target.value })}
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>Relation</Label>
-                  <Select>
+                  <Select value={formData.relation} onValueChange={(v) => setFormData({ ...formData, relation: v })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
@@ -213,7 +189,7 @@ const Security = () => {
                 </div>
                 <div className="space-y-2">
                   <Label>ID Type</Label>
-                  <Select>
+                  <Select value={formData.idType} onValueChange={(v) => setFormData({ ...formData, idType: v })}>
                     <SelectTrigger>
                       <SelectValue placeholder="Select" />
                     </SelectTrigger>
@@ -228,27 +204,37 @@ const Security = () => {
               </div>
               <div className="space-y-2">
                 <Label>Visiting Tenant</Label>
-                <Select>
+                <Select value={formData.tenantId} onValueChange={(v) => setFormData({ ...formData, tenantId: v })}>
                   <SelectTrigger>
                     <SelectValue placeholder="Select tenant" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="priya">Priya Sharma - Room 201</SelectItem>
-                    <SelectItem value="anita">Anita Verma - Room 105</SelectItem>
-                    <SelectItem value="meera">Meera Singh - Room 203</SelectItem>
+                    {tenants.map((tenant) => (
+                      <SelectItem key={tenant._id} value={tenant._id}>
+                        {tenant.name} - Room {tenant.roomId?.roomNumber}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </div>
               <div className="space-y-2">
                 <Label>Phone Number</Label>
-                <Input placeholder="+91 XXXXX XXXXX" />
+                <Input 
+                  placeholder="+91 XXXXX XXXXX" 
+                  value={formData.phone}
+                  onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
+                />
               </div>
               <div className="space-y-2">
                 <Label>Purpose of Visit</Label>
-                <Input placeholder="e.g., Family Visit, Delivery" />
+                <Input 
+                  placeholder="e.g., Family Visit, Delivery" 
+                  value={formData.purpose}
+                  onChange={(e) => setFormData({ ...formData, purpose: e.target.value })}
+                />
               </div>
-              <Button className="w-full btn-gradient" onClick={() => setIsAddVisitorOpen(false)}>
-                Register Entry
+              <Button className="w-full btn-gradient" onClick={handleSubmit} disabled={createMutation.isPending}>
+                {createMutation.isPending ? 'Registering...' : 'Register Entry'}
               </Button>
             </div>
           </DialogContent>
@@ -291,7 +277,7 @@ const Security = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Night Entries</p>
-                <p className="text-xl font-bold text-foreground">{nightEntryLogs.length}</p>
+                <p className="text-xl font-bold text-foreground">0</p>
               </div>
             </div>
           </CardContent>
@@ -304,7 +290,7 @@ const Security = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Gate Passes</p>
-                <p className="text-xl font-bold text-foreground">{gatePassRequests.length}</p>
+                <p className="text-xl font-bold text-foreground">0</p>
               </div>
             </div>
           </CardContent>
@@ -326,7 +312,12 @@ const Security = () => {
                 <CardTitle className="text-lg font-semibold">Visitor Log</CardTitle>
                 <div className="relative w-64">
                   <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
-                  <Input placeholder="Search visitors..." className="pl-10" />
+                  <Input 
+                    placeholder="Search visitors..." 
+                    className="pl-10" 
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                  />
                 </div>
               </div>
             </CardHeader>
@@ -345,8 +336,10 @@ const Security = () => {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {visitorLogs.map((visitor) => (
-                      <TableRow key={visitor.id} className="hover:bg-muted/30">
+                    {visitorLogs.filter(v => 
+                      v.visitorName.toLowerCase().includes(searchQuery.toLowerCase())
+                    ).map((visitor) => (
+                      <TableRow key={visitor._id} className="hover:bg-muted/30">
                         <TableCell>
                           <div>
                             <p className="font-medium">{visitor.visitorName}</p>
@@ -355,8 +348,8 @@ const Security = () => {
                         </TableCell>
                         <TableCell>
                           <div>
-                            <p className="font-medium">{visitor.visitingTenant}</p>
-                            <p className="text-sm text-muted-foreground">Room {visitor.room}</p>
+                            <p className="font-medium">{visitor.tenantId?.name}</p>
+                            <p className="text-sm text-muted-foreground">Room {visitor.tenantId?.roomId?.roomNumber}</p>
                           </div>
                         </TableCell>
                         <TableCell>{visitor.purpose}</TableCell>
@@ -382,16 +375,21 @@ const Security = () => {
                           )}
                         </TableCell>
                         <TableCell>
-                          <Button variant="ghost" size="sm">
-                            {visitor.status === 'inside' ? (
-                              <>
-                                <LogOut className="w-4 h-4 mr-1" />
-                                Mark Exit
-                              </>
-                            ) : (
+                          {visitor.status === 'inside' ? (
+                            <Button 
+                              variant="ghost" 
+                              size="sm"
+                              onClick={() => exitMutation.mutate(visitor._id)}
+                              disabled={exitMutation.isPending}
+                            >
+                              <LogOut className="w-4 h-4 mr-1" />
+                              Mark Exit
+                            </Button>
+                          ) : (
+                            <Button variant="ghost" size="sm">
                               <Eye className="w-4 h-4" />
-                            )}
-                          </Button>
+                            </Button>
+                          )}
                         </TableCell>
                       </TableRow>
                     ))}
@@ -408,39 +406,7 @@ const Security = () => {
               <CardTitle className="text-lg font-semibold">Night Entry Logs</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Room</TableHead>
-                      <TableHead>Entry Time</TableHead>
-                      <TableHead>Reason</TableHead>
-                      <TableHead>Approved By</TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {nightEntryLogs.map((entry) => (
-                      <TableRow key={entry.id} className="hover:bg-muted/30">
-                        <TableCell className="font-medium">{entry.tenant}</TableCell>
-                        <TableCell>{entry.room}</TableCell>
-                        <TableCell>
-                          {new Date(entry.entryTime).toLocaleString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                            hour: '2-digit',
-                            minute: '2-digit',
-                          })}
-                        </TableCell>
-                        <TableCell>{entry.reason}</TableCell>
-                        <TableCell>
-                          <Badge variant="outline">{entry.approvedBy}</Badge>
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <div className="text-center py-10 text-muted-foreground">No night entry logs found</div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -457,68 +423,7 @@ const Security = () => {
               </div>
             </CardHeader>
             <CardContent>
-              <div className="rounded-lg border border-border overflow-hidden">
-                <Table>
-                  <TableHeader>
-                    <TableRow className="bg-muted/50">
-                      <TableHead>Tenant</TableHead>
-                      <TableHead>Type</TableHead>
-                      <TableHead>From</TableHead>
-                      <TableHead>To</TableHead>
-                      <TableHead>Destination</TableHead>
-                      <TableHead>Status</TableHead>
-                      <TableHead></TableHead>
-                    </TableRow>
-                  </TableHeader>
-                  <TableBody>
-                    {gatePassRequests.map((pass) => (
-                      <TableRow key={pass.id} className="hover:bg-muted/30">
-                        <TableCell>
-                          <div>
-                            <p className="font-medium">{pass.tenant}</p>
-                            <p className="text-sm text-muted-foreground">Room {pass.room}</p>
-                          </div>
-                        </TableCell>
-                        <TableCell>
-                          <Badge variant="secondary">{pass.type}</Badge>
-                        </TableCell>
-                        <TableCell>
-                          {new Date(pass.fromDate).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </TableCell>
-                        <TableCell>
-                          {new Date(pass.toDate).toLocaleDateString('en-IN', {
-                            day: 'numeric',
-                            month: 'short',
-                          })}
-                        </TableCell>
-                        <TableCell>{pass.destination}</TableCell>
-                        <TableCell>
-                          {pass.status === 'approved' ? (
-                            <Badge className="bg-success/10 text-success border-success/20">Approved</Badge>
-                          ) : (
-                            <Badge className="bg-warning/10 text-warning border-warning/20">Pending</Badge>
-                          )}
-                        </TableCell>
-                        <TableCell>
-                          {pass.status === 'pending' && (
-                            <div className="flex gap-2">
-                              <Button variant="outline" size="sm" className="text-success">
-                                Approve
-                              </Button>
-                              <Button variant="outline" size="sm" className="text-destructive">
-                                Reject
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </div>
+              <div className="text-center py-10 text-muted-foreground">No gate pass requests found</div>
             </CardContent>
           </Card>
         </TabsContent>
@@ -526,5 +431,8 @@ const Security = () => {
     </div>
   );
 };
+
+export default Security;
+
 
 export default Security;

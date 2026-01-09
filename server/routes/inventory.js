@@ -32,10 +32,15 @@ router.get('/:id', protect, async (req, res) => {
 
 router.post('/', protect, async (req, res) => {
   try {
-    const item = new Inventory(req.body);
+    const itemData = {
+      ...req.body,
+      isActive: true
+    };
+    const item = new Inventory(itemData);
     const savedItem = await item.save();
     res.status(201).json(savedItem);
   } catch (error) {
+    console.error('Inventory Error:', error);
     res.status(500).json({ message: error.message });
   }
 });

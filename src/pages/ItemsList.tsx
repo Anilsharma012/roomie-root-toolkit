@@ -45,11 +45,16 @@ export default function ItemsList() {
 
   const { data: items = [], isLoading } = useQuery<InventoryItem[]>({
     queryKey: ['/api/inventory'],
+    queryFn: async () => {
+      const response = await apiRequest('/inventory');
+      return response.json();
+    }
   });
 
   const createMutation = useMutation({
     mutationFn: async (data: typeof formData) => {
-      return apiRequest('/inventory', { method: 'POST', body: JSON.stringify(data) });
+      const response = await apiRequest('/inventory', { method: 'POST', body: JSON.stringify(data) });
+      return response.json();
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['/api/inventory'] });
