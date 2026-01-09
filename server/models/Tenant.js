@@ -61,13 +61,31 @@ const tenantSchema = new mongoose.Schema({
     default: 'active'
   },
   documents: [{
-    name: { type: String },
-    url: { type: String },
-    type: { type: String }
+    type: { type: String },
+    filename: { type: String },
+    data: { type: String },
+    uploadedAt: { type: Date, default: Date.now }
   }],
   photo: {
     type: String,
     default: ''
+  },
+  kycStatus: {
+    type: String,
+    enum: ['pending', 'verified', 'rejected'],
+    default: 'pending'
+  },
+  occupation: {
+    type: String,
+    default: ''
+  },
+  gender: {
+    type: String,
+    default: ''
+  },
+  dateOfBirth: {
+    type: Date,
+    default: null
   },
   isActive: {
     type: Boolean,

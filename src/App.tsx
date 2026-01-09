@@ -25,6 +25,8 @@ import Services from "./pages/Services";
 import Placeholder from "./pages/Placeholder";
 import Beds from "./pages/Beds";
 import CheckInOut from "./pages/CheckInOut";
+import Payments from "./pages/Payments";
+import KYCDocuments from "./pages/KYCDocuments";
 import NotFound from "./pages/NotFound";
 import { apiRequest } from "./lib/api";
 
@@ -65,11 +67,11 @@ const App = () => (
             <Route path="/tenants" element={<AdminLayout><Tenants /></AdminLayout>} />
             <Route path="/tenants/add" element={<AdminLayout><AddTenant /></AdminLayout>} />
             <Route path="/tenants/check-in-out" element={<AdminLayout><CheckInOut /></AdminLayout>} />
-            <Route path="/tenants/kyc" element={<AdminLayout><Placeholder /></AdminLayout>} />
+            <Route path="/tenants/kyc" element={<AdminLayout><KYCDocuments /></AdminLayout>} />
             
             {/* Billing */}
             <Route path="/billing/generate" element={<AdminLayout><Billing /></AdminLayout>} />
-            <Route path="/billing/payments" element={<AdminLayout><Billing /></AdminLayout>} />
+            <Route path="/billing/payments" element={<AdminLayout><Payments /></AdminLayout>} />
             <Route path="/billing/dues" element={<AdminLayout><Billing /></AdminLayout>} />
             <Route path="/billing/receipts" element={<AdminLayout><Billing /></AdminLayout>} />
             
