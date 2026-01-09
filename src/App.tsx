@@ -21,6 +21,7 @@ import Reports from "./pages/Reports";
 import Expenses from "./pages/Expenses";
 import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
+import Help from "./pages/Help";
 import Services from "./pages/Services";
 import Placeholder from "./pages/Placeholder";
 import Beds from "./pages/Beds";
@@ -106,7 +107,7 @@ const App = () => (
             <Route path="/expenses" element={<AdminLayout><Expenses /></AdminLayout>} />
             <Route path="/notifications" element={<AdminLayout><Notifications /></AdminLayout>} />
             <Route path="/settings" element={<AdminLayout><Settings /></AdminLayout>} />
-            <Route path="/help" element={<AdminLayout><Placeholder /></AdminLayout>} />
+            <Route path="/help" element={<AdminLayout><Help /></AdminLayout>} />
             
             <Route path="*" element={<NotFound />} />
           </Routes>
