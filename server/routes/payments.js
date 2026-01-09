@@ -53,16 +53,23 @@ router.get('/:id', protect, async (req, res) => {
 router.post('/', protect, async (req, res) => {
   try {
     const receiptNumber = `RCP-${Date.now()}`;
+    const paymentData = { ...req.body };
+    
+    // Handle empty billingId string
+    if (paymentData.billingId === '') {
+      delete paymentData.billingId;
+    }
+
     const payment = new Payment({
-      ...req.body,
+      ...paymentData,
       receiptNumber
     });
     const savedPayment = await payment.save();
     
-    if (req.body.billingId) {
-      const bill = await Billing.findById(req.body.billingId);
+    if (paymentData.billingId) {
+      const bill = await Billing.findById(paymentData.billingId);
       if (bill) {
-        bill.paidAmount = (bill.paidAmount || 0) + req.body.amount;
+        bill.paidAmount = (bill.paidAmount || 0) + paymentData.amount;
         bill.dueAmount = bill.totalAmount - bill.paidAmount;
         bill.status = bill.dueAmount <= 0 ? 'paid' : 'partial';
         await bill.save();
@@ -71,10 +78,10 @@ router.post('/', protect, async (req, res) => {
     
     await Activity.create({
       type: 'payment',
-      title: `Payment of Rs.${req.body.amount} received`,
-      tenantId: req.body.tenantId,
+      title: `Payment of Rs.${paymentData.amount} received`,
+      tenantId: paymentData.tenantId,
       userId: req.user._id,
-      metadata: { amount: req.body.amount, receiptNumber }
+      metadata: { amount: paymentData.amount, receiptNumber }
     });
     
     res.status(201).json(savedPayment);
