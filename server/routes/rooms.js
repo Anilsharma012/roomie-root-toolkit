@@ -28,9 +28,24 @@ router.get('/:id', protect, async (req, res) => {
   }
 });
 
+import PG from '../models/PG.js';
+
 router.post('/', protect, async (req, res) => {
   try {
-    const room = new Room(req.body);
+    let { pgId } = req.body;
+    
+    if (!pgId) {
+      const defaultPG = await PG.findOne();
+      if (!defaultPG) {
+        return res.status(400).json({ message: 'No PG found. Please initialize PG first.' });
+      }
+      pgId = defaultPG._id;
+    }
+
+    const room = new Room({
+      ...req.body,
+      pgId
+    });
     const savedRoom = await room.save();
     
     // Update floor room count
