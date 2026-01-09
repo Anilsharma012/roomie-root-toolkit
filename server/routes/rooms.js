@@ -1,5 +1,6 @@
 import express from 'express';
 import Room from '../models/Room.js';
+import Floor from '../models/Floor.js';
 import { protect } from '../middleware/auth.js';
 
 const router = express.Router();
@@ -31,6 +32,12 @@ router.post('/', protect, async (req, res) => {
   try {
     const room = new Room(req.body);
     const savedRoom = await room.save();
+    
+    // Update floor room count
+    await Floor.findByIdAndUpdate(req.body.floorId, {
+      $inc: { totalRooms: 1, totalBeds: req.body.capacity }
+    });
+    
     res.status(201).json(savedRoom);
   } catch (error) {
     res.status(500).json({ message: error.message });

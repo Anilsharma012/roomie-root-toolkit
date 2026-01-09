@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Layers,
   Plus,
@@ -7,7 +8,8 @@ import {
   Edit,
   Trash2,
   MoreVertical,
-  ChevronRight
+  ChevronRight,
+  Loader2
 } from 'lucide-react';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -28,22 +30,68 @@ import {
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { useNavigate } from 'react-router-dom';
+import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
-const floors = [
-  { id: 1, name: 'Ground Floor', rooms: 10, beds: 20, occupied: 18, amenities: ['Dining Hall', 'Common Area'] },
-  { id: 2, name: 'First Floor', rooms: 10, beds: 30, occupied: 28, amenities: ['TV Room'] },
-  { id: 3, name: 'Second Floor', rooms: 10, beds: 30, occupied: 25, amenities: ['Study Room'] },
-  { id: 4, name: 'Third Floor', rooms: 8, beds: 25, occupied: 22, amenities: ['Terrace Access'] },
-  { id: 5, name: 'Fourth Floor', rooms: 7, beds: 15, occupied: 9, amenities: ['Rooftop Garden'] },
-];
+interface Floor {
+  _id: string;
+  floorNumber: number;
+  name?: string;
+  totalRooms?: number;
+  totalBeds?: number;
+  occupiedBeds?: number;
+  amenities?: string[];
+}
 
 const Floors = () => {
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newFloor, setNewFloor] = useState({
+    floorNumber: 0,
+    name: '',
+    amenities: ''
+  });
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
 
-  const totalRooms = floors.reduce((sum, f) => sum + f.rooms, 0);
-  const totalBeds = floors.reduce((sum, f) => sum + f.beds, 0);
-  const totalOccupied = floors.reduce((sum, f) => sum + f.occupied, 0);
+  const { data: floors = [], isLoading } = useQuery<Floor[]>({ 
+    queryKey: ['/api/floors'] 
+  });
+
+  const addFloorMutation = useMutation({
+    mutationFn: (data: any) => api.post('/floors', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/floors'] });
+      setIsAddDialogOpen(false);
+      setNewFloor({ floorNumber: 0, name: '', amenities: '' });
+      toast({ title: 'Floor added successfully!' });
+    },
+    onError: (err: any) => {
+      toast({ title: 'Error adding floor', description: err.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteFloorMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/floors/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/floors'] });
+      toast({ title: 'Floor deleted successfully' });
+    }
+  });
+
+  const totalRooms = floors.reduce((sum, f) => sum + (f.totalRooms || 0), 0);
+  const totalBeds = floors.reduce((sum, f) => sum + (f.totalBeds || 0), 0);
+  const totalOccupied = floors.reduce((sum, f) => sum + (f.occupiedBeds || 0), 0);
+
+  const handleAddFloor = (e: React.FormEvent) => {
+    e.preventDefault();
+    const data = {
+      floorNumber: newFloor.floorNumber,
+      name: newFloor.name || `Floor ${newFloor.floorNumber}`,
+      amenities: newFloor.amenities.split(',').map(a => a.trim()).filter(a => a)
+    };
+    addFloorMutation.mutate(data);
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -64,29 +112,41 @@ const Floors = () => {
             <DialogHeader>
               <DialogTitle>Add New Floor</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
+            <form onSubmit={handleAddFloor} className="space-y-4 py-4">
               <div className="space-y-2">
-                <Label>Floor Name</Label>
-                <Input placeholder="e.g., Fifth Floor" />
-              </div>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>Number of Rooms</Label>
-                  <Input type="number" placeholder="10" />
-                </div>
-                <div className="space-y-2">
-                  <Label>Total Beds</Label>
-                  <Input type="number" placeholder="30" />
-                </div>
+                <Label htmlFor="floorNumber">Floor Number</Label>
+                <Input 
+                  id="floorNumber"
+                  type="number" 
+                  value={newFloor.floorNumber}
+                  onChange={(e) => setNewFloor({...newFloor, floorNumber: Number(e.target.value)})}
+                  placeholder="e.g., 5" 
+                  required
+                />
               </div>
               <div className="space-y-2">
-                <Label>Amenities (comma separated)</Label>
-                <Input placeholder="TV Room, Study Area" />
+                <Label htmlFor="floorName">Floor Name (Optional)</Label>
+                <Input 
+                  id="floorName"
+                  value={newFloor.name}
+                  onChange={(e) => setNewFloor({...newFloor, name: e.target.value})}
+                  placeholder="e.g., Fifth Floor" 
+                />
               </div>
-              <Button className="w-full btn-gradient" onClick={() => setIsAddDialogOpen(false)}>
+              <div className="space-y-2">
+                <Label htmlFor="amenities">Amenities (comma separated)</Label>
+                <Input 
+                  id="amenities"
+                  value={newFloor.amenities}
+                  onChange={(e) => setNewFloor({...newFloor, amenities: e.target.value})}
+                  placeholder="TV Room, Study Area" 
+                />
+              </div>
+              <Button type="submit" className="w-full btn-gradient" disabled={addFloorMutation.isPending}>
+                {addFloorMutation.isPending && <Loader2 className="w-4 h-4 mr-2 animate-spin" />}
                 Add Floor
               </Button>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
@@ -149,85 +209,97 @@ const Floors = () => {
 
       {/* Floor List */}
       <div className="space-y-4">
-        {floors.map((floor, index) => (
-          <Card 
-            key={floor.id} 
-            className="stat-card hover:shadow-md transition-shadow animate-slide-up cursor-pointer"
-            style={{ animationDelay: `${index * 50}ms` }}
-            onClick={() => navigate('/property/rooms')}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
-                  <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
-                    <span className="text-2xl font-bold text-primary">{floor.id}</span>
-                  </div>
-                  <div>
-                    <h3 className="font-semibold text-lg text-foreground">{floor.name}</h3>
-                    <div className="flex items-center gap-2 mt-1">
-                      {floor.amenities.map((amenity) => (
-                        <Badge key={amenity} variant="secondary" className="text-xs">
-                          {amenity}
-                        </Badge>
-                      ))}
+        {isLoading ? (
+          <div className="flex justify-center items-center py-12">
+            <Loader2 className="w-8 h-8 animate-spin text-primary" />
+          </div>
+        ) : (
+          floors.map((floor, index) => (
+            <Card 
+              key={floor._id} 
+              className="stat-card hover:shadow-md transition-shadow animate-slide-up cursor-pointer"
+              style={{ animationDelay: `${index * 50}ms` }}
+              onClick={() => navigate('/property/rooms')}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl bg-primary/10 flex items-center justify-center">
+                      <span className="text-2xl font-bold text-primary">{floor.floorNumber}</span>
                     </div>
+                    <div>
+                      <h3 className="font-semibold text-lg text-foreground">{floor.name || `Floor ${floor.floorNumber}`}</h3>
+                      <div className="flex items-center gap-2 mt-1">
+                        {floor.amenities?.map((amenity) => (
+                          <Badge key={amenity} variant="secondary" className="text-xs">
+                            {amenity}
+                          </Badge>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center gap-6">
+                    <div className="grid grid-cols-3 gap-6 text-center">
+                      <div>
+                        <p className="text-lg font-bold text-foreground">{floor.totalRooms || 0}</p>
+                        <p className="text-xs text-muted-foreground">Rooms</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-foreground">{floor.totalBeds || 0}</p>
+                        <p className="text-xs text-muted-foreground">Beds</p>
+                      </div>
+                      <div>
+                        <p className="text-lg font-bold text-success">{floor.occupiedBeds || 0}</p>
+                        <p className="text-xs text-muted-foreground">Occupied</p>
+                      </div>
+                    </div>
+
+                    <div className="w-20">
+                      <div className="text-center mb-1">
+                        <span className="text-sm font-medium text-foreground">
+                          {floor.totalBeds ? Math.round(((floor.occupiedBeds || 0) / floor.totalBeds) * 100) : 0}%
+                        </span>
+                      </div>
+                      <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
+                        <div
+                          className="h-full bg-primary rounded-full"
+                          style={{ width: `${floor.totalBeds ? ((floor.occupiedBeds || 0) / floor.totalBeds) * 100 : 0}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    <DropdownMenu>
+                      <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
+                        <Button variant="ghost" size="icon">
+                          <MoreVertical className="w-5 h-5" />
+                        </Button>
+                      </DropdownMenuTrigger>
+                      <DropdownMenuContent align="end">
+                        <DropdownMenuItem>
+                          <Edit className="w-4 h-4 mr-2" />
+                          Edit Floor
+                        </DropdownMenuItem>
+                        <DropdownMenuItem 
+                          className="text-destructive"
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            deleteFloorMutation.mutate(floor._id);
+                          }}
+                        >
+                          <Trash2 className="w-4 h-4 mr-2" />
+                          Delete
+                        </DropdownMenuItem>
+                      </DropdownMenuContent>
+                    </DropdownMenu>
+
+                    <ChevronRight className="w-5 h-5 text-muted-foreground" />
                   </div>
                 </div>
-
-                <div className="flex items-center gap-6">
-                  <div className="grid grid-cols-3 gap-6 text-center">
-                    <div>
-                      <p className="text-lg font-bold text-foreground">{floor.rooms}</p>
-                      <p className="text-xs text-muted-foreground">Rooms</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-foreground">{floor.beds}</p>
-                      <p className="text-xs text-muted-foreground">Beds</p>
-                    </div>
-                    <div>
-                      <p className="text-lg font-bold text-success">{floor.occupied}</p>
-                      <p className="text-xs text-muted-foreground">Occupied</p>
-                    </div>
-                  </div>
-
-                  <div className="w-20">
-                    <div className="text-center mb-1">
-                      <span className="text-sm font-medium text-foreground">
-                        {Math.round((floor.occupied / floor.beds) * 100)}%
-                      </span>
-                    </div>
-                    <div className="w-full h-2 bg-muted rounded-full overflow-hidden">
-                      <div
-                        className="h-full bg-primary rounded-full"
-                        style={{ width: `${(floor.occupied / floor.beds) * 100}%` }}
-                      />
-                    </div>
-                  </div>
-
-                  <DropdownMenu>
-                    <DropdownMenuTrigger asChild onClick={(e) => e.stopPropagation()}>
-                      <Button variant="ghost" size="icon">
-                        <MoreVertical className="w-5 h-5" />
-                      </Button>
-                    </DropdownMenuTrigger>
-                    <DropdownMenuContent align="end">
-                      <DropdownMenuItem>
-                        <Edit className="w-4 h-4 mr-2" />
-                        Edit Floor
-                      </DropdownMenuItem>
-                      <DropdownMenuItem className="text-destructive">
-                        <Trash2 className="w-4 h-4 mr-2" />
-                        Delete
-                      </DropdownMenuItem>
-                    </DropdownMenuContent>
-                  </DropdownMenu>
-
-                  <ChevronRight className="w-5 h-5 text-muted-foreground" />
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
     </div>
   );
