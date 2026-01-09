@@ -12,20 +12,15 @@ export async function apiRequest<T>(
 ): Promise<T> {
   const { method = 'GET', body, headers = {} } = options;
   
-  const config: RequestInit = {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...headers,
-    },
-    credentials: 'include',
-  };
-  
-  if (body && method !== 'GET') {
-    config.body = JSON.stringify(body);
-  }
-  
-  const response = await fetch(`${API_BASE}${endpoint}`, config);
+    const response = await fetch(`${API_BASE}${endpoint}`, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        ...headers,
+      },
+      credentials: 'include',
+      body: body && method !== 'GET' ? JSON.stringify(body) : undefined,
+    });
   
   if (!response.ok) {
     const error = await response.json().catch(() => ({ message: 'An error occurred' }));
