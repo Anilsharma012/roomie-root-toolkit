@@ -3,7 +3,7 @@ import mongoose from 'mongoose';
 const activitySchema = new mongoose.Schema({
   type: {
     type: String,
-    enum: ['payment', 'check_in', 'check_out', 'complaint', 'maintenance', 'other'],
+    enum: ['payment', 'check_in', 'check_out', 'complaint', 'maintenance', 'security', 'other'],
     default: 'other'
   },
   title: {
