@@ -21,6 +21,7 @@ import pgsRoutes from './routes/pgs.js';
 import dashboardRoutes from './routes/dashboard.js';
 import servicesRoutes from './routes/services.js';
 import visitorsRoutes from './routes/visitors.js';
+import gatepassRoutes from './routes/gatepasses.js';
 
 dotenv.config();
 
@@ -56,6 +57,7 @@ app.use('/api/pgs', pgsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
 app.use('/api/services', servicesRoutes);
 app.use('/api/visitors', visitorsRoutes);
+app.use('/api/gatepasses', gatepassRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

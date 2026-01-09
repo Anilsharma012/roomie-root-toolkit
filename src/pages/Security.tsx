@@ -83,7 +83,48 @@ const Security = () => {
     purpose: ''
   });
 
+  const [isAddGatePassOpen, setIsAddGatePassOpen] = useState(false);
+  const [gatePassFormData, setGatePassFormData] = useState({
+    tenantId: '',
+    reason: '',
+    departureTime: '',
+    expectedReturn: '',
+  });
+
   const queryClient = useQueryClient();
+
+  const { data: gatePasses = [] } = useQuery<any[]>({
+    queryKey: ['/api/gatepasses'],
+    enabled: true,
+  });
+
+  const gatePassMutation = useMutation({
+    mutationFn: async (data: typeof gatePassFormData) => {
+      return apiRequest('/gatepasses', { method: 'POST', body: data });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/gatepasses'] });
+      toast({ title: 'Gate pass requested successfully' });
+      setIsAddGatePassOpen(false);
+      setGatePassFormData({
+        tenantId: '',
+        reason: '',
+        departureTime: '',
+        expectedReturn: '',
+      });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Failed to request gate pass', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const handleGatePassSubmit = () => {
+    if (!gatePassFormData.tenantId || !gatePassFormData.reason || !gatePassFormData.departureTime) {
+      toast({ title: 'Please fill required fields', variant: 'destructive' });
+      return;
+    }
+    gatePassMutation.mutate(gatePassFormData);
+  };
 
   const { data: visitorLogs = [], isLoading } = useQuery<Visitor[]>({
     queryKey: ['/api/visitors'],
@@ -416,14 +457,103 @@ const Security = () => {
             <CardHeader className="pb-4">
               <div className="flex items-center justify-between">
                 <CardTitle className="text-lg font-semibold">Gate Pass Requests</CardTitle>
-                <Button variant="outline" size="sm">
-                  <Plus className="w-4 h-4 mr-2" />
-                  New Request
-                </Button>
+                <Dialog open={isAddGatePassOpen} onOpenChange={setIsAddGatePassOpen}>
+                  <DialogTrigger asChild>
+                    <Button variant="outline" size="sm">
+                      <Plus className="w-4 h-4 mr-2" />
+                      New Request
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-md">
+                    <DialogHeader>
+                      <DialogTitle>Request Gate Pass</DialogTitle>
+                    </DialogHeader>
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                        <Label>Tenant</Label>
+                        <Select 
+                          value={gatePassFormData.tenantId} 
+                          onValueChange={(v) => setGatePassFormData({ ...gatePassFormData, tenantId: v })}
+                        >
+                          <SelectTrigger>
+                            <SelectValue placeholder="Select tenant" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {tenants.map((tenant: any) => (
+                              <SelectItem key={tenant._id} value={tenant._id}>
+                                {tenant.name} - Room {tenant.roomId?.roomNumber}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                      <div className="space-y-2">
+                        <Label>Reason</Label>
+                        <Input 
+                          placeholder="Reason for going out" 
+                          value={gatePassFormData.reason}
+                          onChange={(e) => setGatePassFormData({ ...gatePassFormData, reason: e.target.value })}
+                        />
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label>Departure Time</Label>
+                          <Input 
+                            type="datetime-local"
+                            value={gatePassFormData.departureTime}
+                            onChange={(e) => setGatePassFormData({ ...gatePassFormData, departureTime: e.target.value })}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label>Expected Return</Label>
+                          <Input 
+                            type="datetime-local"
+                            value={gatePassFormData.expectedReturn}
+                            onChange={(e) => setGatePassFormData({ ...gatePassFormData, expectedReturn: e.target.value })}
+                          />
+                        </div>
+                      </div>
+                      <Button className="w-full btn-gradient" onClick={handleGatePassSubmit} disabled={gatePassMutation.isPending}>
+                        {gatePassMutation.isPending ? 'Submitting...' : 'Submit Request'}
+                      </Button>
+                    </div>
+                  </DialogContent>
+                </Dialog>
               </div>
             </CardHeader>
             <CardContent>
-              <div className="text-center py-10 text-muted-foreground">No gate pass requests found</div>
+              {gatePasses.length === 0 ? (
+                <div className="text-center py-10 text-muted-foreground">No gate pass requests found</div>
+              ) : (
+                <div className="rounded-lg border border-border overflow-hidden">
+                  <Table>
+                    <TableHeader>
+                      <TableRow className="bg-muted/50">
+                        <TableHead>Tenant</TableHead>
+                        <TableHead>Reason</TableHead>
+                        <TableHead>Departure</TableHead>
+                        <TableHead>Return</TableHead>
+                        <TableHead>Status</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {gatePasses.map((pass: any) => (
+                        <TableRow key={pass._id}>
+                          <TableCell className="font-medium">{pass.tenantId?.name}</TableCell>
+                          <TableCell>{pass.reason}</TableCell>
+                          <TableCell>{new Date(pass.departureTime).toLocaleString()}</TableCell>
+                          <TableCell>{pass.expectedReturn ? new Date(pass.expectedReturn).toLocaleString() : '-'}</TableCell>
+                          <TableCell>
+                            <Badge variant={pass.status === 'approved' ? 'default' : 'secondary'}>
+                              {pass.status}
+                            </Badge>
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
