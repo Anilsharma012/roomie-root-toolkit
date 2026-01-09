@@ -14,7 +14,13 @@ const router = express.Router();
 
 router.get('/uploads/:filename', (req, res) => {
   const filePath = path.join(__dirname, '../../uploads', req.params.filename);
-  res.sendFile(filePath);
+  res.sendFile(filePath, (err) => {
+    if (err) {
+      // If image not found, send the placeholder from public folder
+      const placeholderPath = path.join(__dirname, '../../public/placeholder.svg');
+      res.sendFile(placeholderPath);
+    }
+  });
 });
 
 router.get('/', protect, async (req, res) => {

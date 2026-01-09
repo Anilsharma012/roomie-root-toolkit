@@ -343,7 +343,7 @@ const KYCDocuments = () => {
                           ) : (
                             <>
                               <img 
-                                src={`/api/tenants/uploads/${doc.filename}`} 
+                                src={`/api/tenants/uploads/${doc.filename}?t=${Date.now()}`} 
                                 alt={doc.type}
                                 className="w-full h-auto max-h-[800px] object-contain transition-transform duration-300 group-hover:scale-[1.01]"
                                 onError={(e) => {
