@@ -19,6 +19,7 @@ import notificationsRoutes from './routes/notifications.js';
 import activitiesRoutes from './routes/activities.js';
 import pgsRoutes from './routes/pgs.js';
 import dashboardRoutes from './routes/dashboard.js';
+import servicesRoutes from './routes/services.js';
 
 dotenv.config();
 
@@ -49,6 +50,7 @@ app.use('/api/notifications', notificationsRoutes);
 app.use('/api/activities', activitiesRoutes);
 app.use('/api/pgs', pgsRoutes);
 app.use('/api/dashboard', dashboardRoutes);
+app.use('/api/services', servicesRoutes);
 
 app.get('/api/health', (req, res) => {
   res.json({ status: 'ok', timestamp: new Date().toISOString() });

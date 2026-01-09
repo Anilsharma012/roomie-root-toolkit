@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { 
   Search, 
   Plus, 
@@ -6,19 +7,16 @@ import {
   Phone,
   Mail,
   Calendar,
-  Clock,
   MoreVertical,
   Edit,
   Trash2,
-  Eye,
-  IndianRupee,
-  CheckCircle2,
-  XCircle
+  Loader2
 } from 'lucide-react';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
+import { Card, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
+import { Label } from '@/components/ui/label';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -39,97 +37,65 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
-import { Label } from '@/components/ui/label';
+import { api } from '@/lib/api';
+import { useToast } from '@/hooks/use-toast';
 
-const staffMembers = [
-  {
-    id: 1,
-    name: 'Sunita Devi',
-    role: 'Warden',
-    phone: '+91 98765 11111',
-    email: 'sunita@pg.com',
-    joinDate: '2022-01-15',
-    salary: 25000,
-    shift: 'Day',
-    status: 'present',
-    address: 'Sector 15, Noida',
-  },
-  {
-    id: 2,
-    name: 'Ramesh Kumar',
-    role: 'Security Guard',
-    phone: '+91 98765 22222',
-    email: 'ramesh@pg.com',
-    joinDate: '2022-06-01',
-    salary: 15000,
-    shift: 'Night',
-    status: 'present',
-    address: 'Sector 12, Noida',
-  },
-  {
-    id: 3,
-    name: 'Geeta Sharma',
-    role: 'Cook',
-    phone: '+91 98765 33333',
-    email: 'geeta@pg.com',
-    joinDate: '2023-02-10',
-    salary: 18000,
-    shift: 'Day',
-    status: 'present',
-    address: 'Sector 18, Noida',
-  },
-  {
-    id: 4,
-    name: 'Lakshmi Bai',
-    role: 'Cleaner',
-    phone: '+91 98765 44444',
-    email: 'lakshmi@pg.com',
-    joinDate: '2023-05-20',
-    salary: 12000,
-    shift: 'Day',
-    status: 'absent',
-    address: 'Sector 10, Noida',
-  },
-  {
-    id: 5,
-    name: 'Mohan Singh',
-    role: 'Security Guard',
-    phone: '+91 98765 55555',
-    email: 'mohan@pg.com',
-    joinDate: '2023-08-01',
-    salary: 15000,
-    shift: 'Day',
-    status: 'present',
-    address: 'Sector 20, Noida',
-  },
-  {
-    id: 6,
-    name: 'Kamla Devi',
-    role: 'Helper',
-    phone: '+91 98765 66666',
-    email: 'kamla@pg.com',
-    joinDate: '2024-01-05',
-    salary: 10000,
-    shift: 'Day',
-    status: 'leave',
-    address: 'Sector 22, Noida',
-  },
-];
-
-const attendanceData = [
-  { date: '2024-02-01', present: 5, absent: 1, leave: 0 },
-  { date: '2024-02-02', present: 6, absent: 0, leave: 0 },
-  { date: '2024-02-03', present: 4, absent: 1, leave: 1 },
-  { date: '2024-02-04', present: 5, absent: 0, leave: 1 },
-  { date: '2024-02-05', present: 5, absent: 1, leave: 0 },
-];
+interface Staff {
+  _id: string;
+  name: string;
+  role: string;
+  phone: string;
+  email: string;
+  address: string;
+  salary: number;
+  joinDate: string;
+  status: 'active' | 'inactive' | 'on_leave';
+  shift: string;
+  isActive: boolean;
+  createdAt: string;
+}
 
 const Staff = () => {
   const [searchQuery, setSearchQuery] = useState('');
   const [roleFilter, setRoleFilter] = useState('all');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [newStaff, setNewStaff] = useState({
+    name: '',
+    role: 'cleaner',
+    phone: '',
+    email: '',
+    address: '',
+    salary: 0,
+    shift: 'day'
+  });
 
-  const filteredStaff = staffMembers.filter((staff) => {
+  const { toast } = useToast();
+  const queryClient = useQueryClient();
+
+  const { data: staffMembers, isLoading } = useQuery<Staff[]>({ queryKey: ['/api/staff'] });
+
+  const addStaffMutation = useMutation({
+    mutationFn: (data: typeof newStaff) => api.post('/staff', data),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      setIsAddDialogOpen(false);
+      setNewStaff({ name: '', role: 'cleaner', phone: '', email: '', address: '', salary: 0, shift: 'day' });
+      toast({ title: 'Staff member added successfully!' });
+    },
+    onError: (error: Error) => {
+      toast({ title: 'Error adding staff', description: error.message, variant: 'destructive' });
+    }
+  });
+
+  const deleteStaffMutation = useMutation({
+    mutationFn: (id: string) => api.delete(`/staff/${id}`),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['/api/staff'] });
+      toast({ title: 'Staff member removed!' });
+    }
+  });
+
+  const filteredStaff = (staffMembers || []).filter((staff) => {
     const matchesSearch = 
       staff.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       staff.phone.includes(searchQuery);
@@ -137,111 +103,131 @@ const Staff = () => {
     return matchesSearch && matchesRole;
   });
 
-  const totalSalary = staffMembers.reduce((sum, s) => sum + s.salary, 0);
-  const presentToday = staffMembers.filter(s => s.status === 'present').length;
+  const handleAddStaff = (e: React.FormEvent) => {
+    e.preventDefault();
+    addStaffMutation.mutate(newStaff);
+  };
 
   const getStatusBadge = (status: string) => {
     switch (status) {
-      case 'present':
-        return <Badge className="bg-success/10 text-success border-success/20">Present</Badge>;
-      case 'absent':
-        return <Badge className="bg-destructive/10 text-destructive border-destructive/20">Absent</Badge>;
-      case 'leave':
+      case 'active':
+        return <Badge className="bg-success/10 text-success border-success/20">Active</Badge>;
+      case 'inactive':
+        return <Badge className="bg-muted text-muted-foreground">Inactive</Badge>;
+      case 'on_leave':
         return <Badge className="bg-warning/10 text-warning border-warning/20">On Leave</Badge>;
       default:
         return <Badge variant="secondary">{status}</Badge>;
     }
   };
 
-  const getRoleBadge = (role: string) => {
-    const colors: Record<string, string> = {
-      'Warden': 'bg-primary/10 text-primary border-primary/20',
-      'Security Guard': 'bg-accent/10 text-accent border-accent/20',
-      'Cook': 'bg-warning/10 text-warning border-warning/20',
-      'Cleaner': 'bg-muted text-muted-foreground',
-      'Helper': 'bg-secondary text-secondary-foreground',
-    };
-    return <Badge className={colors[role] || 'bg-secondary'}>{role}</Badge>;
-  };
+  const roles = ['warden', 'security', 'cook', 'cleaner', 'maintenance', 'manager', 'other'];
 
   return (
     <div className="space-y-6 animate-fade-in">
-      {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Staff Management</h1>
-          <p className="text-muted-foreground mt-1">Manage PG staff, attendance & salaries</p>
+          <h1 className="text-2xl lg:text-3xl font-bold text-foreground" data-testid="text-page-title">Staff Management</h1>
+          <p className="text-muted-foreground mt-1">Manage all PG staff members</p>
         </div>
         <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
           <DialogTrigger asChild>
-            <Button className="btn-gradient">
+            <Button className="btn-gradient" data-testid="button-add-staff">
               <Plus className="w-4 h-4 mr-2" />
               Add Staff
             </Button>
           </DialogTrigger>
-          <DialogContent className="max-w-md">
+          <DialogContent>
             <DialogHeader>
               <DialogTitle>Add New Staff Member</DialogTitle>
             </DialogHeader>
-            <div className="space-y-4 py-4">
-              <div className="space-y-2">
-                <Label>Full Name</Label>
-                <Input placeholder="Enter full name" />
+            <form onSubmit={handleAddStaff} className="space-y-4">
+              <div>
+                <Label htmlFor="name">Full Name</Label>
+                <Input
+                  id="name"
+                  value={newStaff.name}
+                  onChange={(e) => setNewStaff({ ...newStaff, name: e.target.value })}
+                  required
+                  data-testid="input-staff-name"
+                />
               </div>
               <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
+                <div>
                   <Label>Role</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select role" />
+                  <Select value={newStaff.role} onValueChange={(v) => setNewStaff({ ...newStaff, role: v })}>
+                    <SelectTrigger data-testid="select-role">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="warden">Warden</SelectItem>
-                      <SelectItem value="security">Security Guard</SelectItem>
-                      <SelectItem value="cook">Cook</SelectItem>
-                      <SelectItem value="cleaner">Cleaner</SelectItem>
-                      <SelectItem value="helper">Helper</SelectItem>
+                      {roles.map(role => (
+                        <SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>
+                      ))}
                     </SelectContent>
                   </Select>
                 </div>
-                <div className="space-y-2">
+                <div>
                   <Label>Shift</Label>
-                  <Select>
-                    <SelectTrigger>
-                      <SelectValue placeholder="Select shift" />
+                  <Select value={newStaff.shift} onValueChange={(v) => setNewStaff({ ...newStaff, shift: v })}>
+                    <SelectTrigger data-testid="select-shift">
+                      <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="day">Day Shift</SelectItem>
-                      <SelectItem value="night">Night Shift</SelectItem>
+                      <SelectItem value="day">Day</SelectItem>
+                      <SelectItem value="night">Night</SelectItem>
+                      <SelectItem value="flexible">Flexible</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
               </div>
-              <div className="space-y-2">
-                <Label>Phone Number</Label>
-                <Input placeholder="+91 XXXXX XXXXX" />
+              <div>
+                <Label htmlFor="phone">Phone Number</Label>
+                <Input
+                  id="phone"
+                  value={newStaff.phone}
+                  onChange={(e) => setNewStaff({ ...newStaff, phone: e.target.value })}
+                  required
+                  data-testid="input-staff-phone"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Email</Label>
-                <Input type="email" placeholder="email@example.com" />
+              <div>
+                <Label htmlFor="email">Email</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  value={newStaff.email}
+                  onChange={(e) => setNewStaff({ ...newStaff, email: e.target.value })}
+                  data-testid="input-staff-email"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Monthly Salary (₹)</Label>
-                <Input type="number" placeholder="15000" />
+              <div>
+                <Label htmlFor="address">Address</Label>
+                <Input
+                  id="address"
+                  value={newStaff.address}
+                  onChange={(e) => setNewStaff({ ...newStaff, address: e.target.value })}
+                  data-testid="input-staff-address"
+                />
               </div>
-              <div className="space-y-2">
-                <Label>Address</Label>
-                <Input placeholder="Enter address" />
+              <div>
+                <Label htmlFor="salary">Monthly Salary</Label>
+                <Input
+                  id="salary"
+                  type="number"
+                  value={newStaff.salary}
+                  onChange={(e) => setNewStaff({ ...newStaff, salary: Number(e.target.value) })}
+                  data-testid="input-staff-salary"
+                />
               </div>
-              <Button className="w-full btn-gradient" onClick={() => setIsAddDialogOpen(false)}>
+              <Button type="submit" className="w-full" disabled={addStaffMutation.isPending} data-testid="button-submit-staff">
+                {addStaffMutation.isPending ? <Loader2 className="w-4 h-4 mr-2 animate-spin" /> : null}
                 Add Staff Member
               </Button>
-            </div>
+            </form>
           </DialogContent>
         </Dialog>
       </div>
 
-      {/* Stats */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="stat-card">
           <CardContent className="p-4">
@@ -251,7 +237,7 @@ const Staff = () => {
               </div>
               <div>
                 <p className="text-sm text-muted-foreground">Total Staff</p>
-                <p className="text-xl font-bold text-foreground">{staffMembers.length}</p>
+                <p className="text-xl font-bold text-foreground" data-testid="text-total-staff">{staffMembers?.length || 0}</p>
               </div>
             </div>
           </CardContent>
@@ -260,11 +246,11 @@ const Staff = () => {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-success/10 flex items-center justify-center">
-                <CheckCircle2 className="w-5 h-5 text-success" />
+                <UserCog className="w-5 h-5 text-success" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Present Today</p>
-                <p className="text-xl font-bold text-success">{presentToday}</p>
+                <p className="text-sm text-muted-foreground">Active</p>
+                <p className="text-xl font-bold text-success">{(staffMembers || []).filter(s => s.status === 'active').length}</p>
               </div>
             </div>
           </CardContent>
@@ -272,14 +258,12 @@ const Staff = () => {
         <Card className="stat-card">
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
-              <div className="w-10 h-10 rounded-lg bg-destructive/10 flex items-center justify-center">
-                <XCircle className="w-5 h-5 text-destructive" />
+              <div className="w-10 h-10 rounded-lg bg-warning/10 flex items-center justify-center">
+                <UserCog className="w-5 h-5 text-warning" />
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Absent</p>
-                <p className="text-xl font-bold text-destructive">
-                  {staffMembers.filter(s => s.status === 'absent').length}
-                </p>
+                <p className="text-sm text-muted-foreground">On Leave</p>
+                <p className="text-xl font-bold text-warning">{(staffMembers || []).filter(s => s.status === 'on_leave').length}</p>
               </div>
             </div>
           </CardContent>
@@ -288,151 +272,134 @@ const Staff = () => {
           <CardContent className="p-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
-                <IndianRupee className="w-5 h-5 text-accent" />
+                <span className="text-lg font-bold text-accent">₹</span>
               </div>
               <div>
-                <p className="text-sm text-muted-foreground">Monthly Salary</p>
-                <p className="text-xl font-bold text-foreground">₹{(totalSalary / 1000)}K</p>
+                <p className="text-sm text-muted-foreground">Monthly Payroll</p>
+                <p className="text-xl font-bold text-foreground">
+                  ₹{((staffMembers || []).reduce((sum, s) => sum + (s.salary || 0), 0) / 1000).toFixed(0)}K
+                </p>
               </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
-      {/* Filters */}
       <Card className="stat-card">
         <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
+          <div className="flex flex-col lg:flex-row gap-4">
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
               <Input
-                placeholder="Search staff by name or phone..."
+                placeholder="Search by name or phone..."
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-10"
+                data-testid="input-search-staff"
               />
             </div>
             <Select value={roleFilter} onValueChange={setRoleFilter}>
-              <SelectTrigger className="w-[160px]">
+              <SelectTrigger className="w-[140px]" data-testid="select-role-filter">
                 <SelectValue placeholder="Role" />
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Roles</SelectItem>
-                <SelectItem value="Warden">Warden</SelectItem>
-                <SelectItem value="Security Guard">Security Guard</SelectItem>
-                <SelectItem value="Cook">Cook</SelectItem>
-                <SelectItem value="Cleaner">Cleaner</SelectItem>
-                <SelectItem value="Helper">Helper</SelectItem>
+                {roles.map(role => (
+                  <SelectItem key={role} value={role} className="capitalize">{role}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
         </CardContent>
       </Card>
 
-      {/* Staff Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
-        {filteredStaff.map((staff, index) => (
-          <Card 
-            key={staff.id} 
-            className="stat-card hover:shadow-md transition-shadow animate-slide-up"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <CardContent className="p-5">
-              <div className="flex items-start justify-between">
-                <div className="flex items-center gap-3">
-                  <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
-                    {staff.name.charAt(0)}
+      {isLoading ? (
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 animate-spin text-primary" />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+          {filteredStaff.map((staff, index) => (
+            <Card 
+              key={staff._id} 
+              className="stat-card animate-slide-up"
+              style={{ animationDelay: `${index * 50}ms` }}
+              data-testid={`card-staff-${staff._id}`}
+            >
+              <CardContent className="p-5">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-12 h-12 rounded-full bg-primary/10 flex items-center justify-center text-primary font-semibold text-lg">
+                      {staff.name.charAt(0)}
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">{staff.name}</h3>
+                      <p className="text-sm text-muted-foreground capitalize">{staff.role}</p>
+                    </div>
                   </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8" data-testid={`button-menu-${staff._id}`}>
+                        <MoreVertical className="w-4 h-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem data-testid={`menu-edit-${staff._id}`}>
+                        <Edit className="w-4 h-4 mr-2" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem 
+                        className="text-destructive"
+                        onClick={() => deleteStaffMutation.mutate(staff._id)}
+                        data-testid={`menu-delete-${staff._id}`}
+                      >
+                        <Trash2 className="w-4 h-4 mr-2" />
+                        Remove
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
+                </div>
+
+                <div className="mt-4 space-y-2">
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Phone className="w-4 h-4" />
+                    <span>{staff.phone}</span>
+                  </div>
+                  {staff.email && (
+                    <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                      <Mail className="w-4 h-4" />
+                      <span className="truncate">{staff.email}</span>
+                    </div>
+                  )}
+                  <div className="flex items-center gap-2 text-sm text-muted-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>Joined {new Date(staff.joinDate || staff.createdAt).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
+                  </div>
+                </div>
+
+                <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
                   <div>
-                    <h3 className="font-semibold text-foreground">{staff.name}</h3>
-                    {getRoleBadge(staff.role)}
+                    <p className="text-xs text-muted-foreground">Salary</p>
+                    <p className="text-lg font-bold text-foreground">₹{staff.salary?.toLocaleString() || 0}</p>
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Badge variant="outline" className="capitalize">{staff.shift || 'Day'}</Badge>
+                    {getStatusBadge(staff.status || 'active')}
                   </div>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreVertical className="w-4 h-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem>
-                      <Eye className="w-4 h-4 mr-2" />
-                      View Details
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Edit className="w-4 h-4 mr-2" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem>
-                      <Calendar className="w-4 h-4 mr-2" />
-                      Attendance
-                    </DropdownMenuItem>
-                    <DropdownMenuItem className="text-destructive">
-                      <Trash2 className="w-4 h-4 mr-2" />
-                      Remove
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
 
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Phone className="w-4 h-4" />
-                  <span>{staff.phone}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Mail className="w-4 h-4" />
-                  <span>{staff.email}</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Clock className="w-4 h-4" />
-                  <span>{staff.shift} Shift</span>
-                </div>
-                <div className="flex items-center gap-2 text-sm text-muted-foreground">
-                  <Calendar className="w-4 h-4" />
-                  <span>Joined {new Date(staff.joinDate).toLocaleDateString('en-IN', { month: 'short', year: 'numeric' })}</span>
-                </div>
-              </div>
-
-              <div className="mt-4 pt-4 border-t border-border flex items-center justify-between">
-                <div>
-                  <p className="text-xs text-muted-foreground">Monthly Salary</p>
-                  <p className="text-lg font-bold text-foreground">₹{staff.salary.toLocaleString()}</p>
-                </div>
-                {getStatusBadge(staff.status)}
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* Attendance Summary */}
-      <Card className="stat-card">
-        <CardHeader>
-          <CardTitle className="text-lg font-semibold">Recent Attendance</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="grid grid-cols-5 gap-3">
-            {attendanceData.map((day) => (
-              <div key={day.date} className="text-center p-3 rounded-lg bg-muted/50">
-                <p className="text-xs text-muted-foreground mb-2">
-                  {new Date(day.date).toLocaleDateString('en-IN', { weekday: 'short', day: 'numeric' })}
-                </p>
-                <div className="space-y-1">
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-success" />
-                    <span className="text-sm font-medium">{day.present}</span>
-                  </div>
-                  <div className="flex items-center justify-center gap-1">
-                    <div className="w-2 h-2 rounded-full bg-destructive" />
-                    <span className="text-sm font-medium">{day.absent}</span>
-                  </div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+      {!isLoading && filteredStaff.length === 0 && (
+        <Card className="stat-card">
+          <CardContent className="py-12 text-center">
+            <p className="text-muted-foreground">No staff members found. Add your first staff member to get started!</p>
+          </CardContent>
+        </Card>
+      )}
     </div>
   );
 };

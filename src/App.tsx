@@ -23,9 +23,23 @@ import Notifications from "./pages/Notifications";
 import Settings from "./pages/Settings";
 import Services from "./pages/Services";
 import Placeholder from "./pages/Placeholder";
+import Beds from "./pages/Beds";
+import CheckInOut from "./pages/CheckInOut";
 import NotFound from "./pages/NotFound";
+import { apiRequest } from "./lib/api";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: {
+      queryFn: async ({ queryKey }) => {
+        const endpoint = queryKey[0] as string;
+        return apiRequest(endpoint.replace('/api', ''));
+      },
+      staleTime: 5 * 60 * 1000,
+      retry: 1,
+    },
+  },
+});
 
 const App = () => (
   <QueryClientProvider client={queryClient}>
@@ -45,12 +59,12 @@ const App = () => (
             <Route path="/property/pg-list" element={<AdminLayout><PGList /></AdminLayout>} />
             <Route path="/property/floors" element={<AdminLayout><Floors /></AdminLayout>} />
             <Route path="/property/rooms" element={<AdminLayout><Rooms /></AdminLayout>} />
-            <Route path="/property/beds" element={<AdminLayout><Placeholder /></AdminLayout>} />
+            <Route path="/property/beds" element={<AdminLayout><Beds /></AdminLayout>} />
             
             {/* Tenants */}
             <Route path="/tenants" element={<AdminLayout><Tenants /></AdminLayout>} />
             <Route path="/tenants/add" element={<AdminLayout><AddTenant /></AdminLayout>} />
-            <Route path="/tenants/check-in-out" element={<AdminLayout><Placeholder /></AdminLayout>} />
+            <Route path="/tenants/check-in-out" element={<AdminLayout><CheckInOut /></AdminLayout>} />
             <Route path="/tenants/kyc" element={<AdminLayout><Placeholder /></AdminLayout>} />
             
             {/* Billing */}
